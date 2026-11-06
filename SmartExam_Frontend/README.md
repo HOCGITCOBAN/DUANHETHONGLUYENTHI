@@ -1,0 +1,74 @@
+# SmartExam Frontend
+
+Toàn bộ FE1 + FE2 theo Product Backlog SmartExam: giao diện Sinh viên và Admin.
+HTML, CSS, JavaScript ES modules thuần; không cần npm install, không dùng dịch vụ trả phí.
+
+## Chạy trên máy
+
+Cách nhanh trên Windows (đã cài Node.js 20+): giải nén rồi mở `CHAY_SMARTEXAM.bat`, truy cập http://localhost:5500 và giữ cửa sổ chạy mở. Hoặc chạy `node server.mjs`.
+
+Cách dùng VS Code:
+
+1. Giải nén vào một thư mục.
+2. Mở thư mục bằng VS Code, cài extension Live Server nếu chưa có.
+3. Nhấn chuột phải `dist/index.html` → Open with Live Server.
+4. Hoặc nếu có Python: `python -m http.server 5500 --directory dist`, rồi mở http://localhost:5500.
+
+Không mở file bằng double-click/file:// vì ES modules cần HTTP server.
+
+## Tài khoản demo
+
+| Vai trò | Email | Mật khẩu demo |
+|---|---|---|
+| Sinh viên | student@smartexam.vn | demo123 |
+| Admin | admin@smartexam.vn | admin123 |
+
+Chế độ demo mô phỏng nghiệp vụ bằng localStorage. Tài khoản sinh viên mới đăng ký dùng chung mật khẩu demo123; mật khẩu nhập trên form chỉ được gửi trong chế độ API. Demo không phải hệ thống xác thực hay thi thật, không lưu mật khẩu người dùng.
+Dữ liệu chỉ tồn tại trên trình duyệt/origin hiện tại. Muốn quay lại dữ liệu ban đầu, xóa dữ liệu trang trong DevTools → Application → Local storage. Không dùng thông tin cá nhân thật trong bản demo.
+
+## Chức năng
+
+| Backlog | Giao diện đã có |
+|---|---|
+| US-01 đến US-04 | Đăng ký, đăng nhập, điều hướng theo vai trò, hồ sơ, đăng xuất |
+| US-05 | Thêm, sửa, ẩn/mở môn học; tự tạo slug |
+| US-06, US-07 | Ngân hàng câu hỏi, 2–6 phương án, đúng 1 đáp án đúng, lời giải, khóa sửa câu đã xuất bản |
+| US-08 đến US-10 | Đề nháp, môn học, thời lượng, điểm đạt, lượt thi; chọn/sắp xếp câu, trọng số; xuất bản/ẩn |
+| US-11 đến US-15 | Danh sách đề, tìm/lọc, bắt đầu, trả lời, tự lưu, đồng hồ, khôi phục sau F5, đánh dấu câu |
+| US-16 đến US-20 | Xác nhận nộp, tự nộp khi hết giờ lúc trang đang mở, kết quả, lịch sử, xem đáp án/lời giải |
+| US-21, US-22 | Thống kê tổng lượt/điểm/tỷ lệ đạt, tìm theo từ khóa/môn/độ khó |
+| TK-04 | CSS responsive từ 360px, menu di động, bảng cuộn ngang, label và điều khiển bàn phím |
+
+## Kết nối Backend
+
+Sửa `dist/config.js`:
+
+```js
+window.SMARTEXAM_CONFIG = {
+  mode: 'api',
+  baseUrl: 'http://localhost:8000'
+};
+```
+
+Cấu hình CORS trên Backend cho origin đang chạy FE. Khi FE chạy HTTPS, API cũng phải HTTPS.
+Không có fallback ngầm sang demo nếu API lỗi. HTTP 401 yêu cầu đăng nhập lại; HTTP 403/lỗi nghiệp vụ hiển thị thông báo.
+JWT ở bộ nhớ JavaScript, không lưu localStorage/sessionStorage trong chế độ API. F5 sẽ cần đăng nhập lại; sau đó vào Lịch sử để tiếp tục lượt thi. Muốn giữ phiên xuyên F5 cần Backend bổ sung refresh token bằng cookie HttpOnly và cập nhật adapter.
+
+Đọc `API_CONTRACT.md` trước khi triển khai BE. Adapter dùng các endpoint trong backlog và thêm GET /admin/subjects, GET /admin/exams để liệt kê dữ liệu quản trị. Các DTO là hợp đồng đề xuất, cần thống nhất với BE1/BE2. Chưa kiểm thử với Backend thật vì chưa có máy chủ/API được cung cấp.
+
+## Cấu trúc
+
+- `dist/index.html`: khung trang, cấu hình metadata.
+- `dist/styles.css`: toàn bộ giao diện, responsive, focus/label.
+- `dist/app.js`: router, giao diện Sinh viên/Admin, biểu mẫu, thi và kết quả.
+- `dist/api.js`: HTTP adapter và service demo; mọi thao tác dữ liệu đi qua `api`.
+- `dist/config.js`: cấu hình demo/API.
+- `tests/domain.mjs`: kiểm thử nghiệp vụ demo, chạy `node tests/domain.mjs` (Node 20+).
+- `API_CONTRACT.md`: hợp đồng dữ liệu và điểm nối API.
+- `TEST_REPORT.md`: phạm vi kiểm thử đã thực hiện và giới hạn.
+
+## Phần Backend phải đảm nhiệm khi dùng thật
+
+Đăng ký/băm mật khẩu, JWT, phân quyền và bảo vệ dữ liệu; không trả đáp án đúng trước khi nộp; lưu đáp án trên CSDL, deadline theo giờ server; chấm điểm bằng transaction/idempotency, tự chốt bài khi đóng trình duyệt; bảo vệ cấu trúc đề/câu hỏi đã xuất bản. Kiểm tra phía FE chỉ phục vụ trải nghiệm và không thay thế các kiểm tra này.
+
+Không có tính năng AI gọi model vì backlog hiện tại không có user story/API AI. Không tự thêm tính năng hoặc chi phí API ngoài phạm vi.
