@@ -35,7 +35,7 @@ Trước khi nộp: snapshot câu hỏi không có `is_correct`/`explanation`. S
 
 | Method | URL | Request / Response |
 |---|---|---|
-| POST | /auth/register | `{name,email,password}`; thành công 201/204 |
+| POST | /auth/register | `{name,email,password}` → HTTP 201 `{id,name,email,role:'student'}`; email trùng trả 409 |
 | POST | /auth/login | `{email,password}` → `{access_token,token_type:'bearer'}` |
 | GET | /auth/me | User |
 | GET | /subjects | Subject[] chỉ môn mở |
@@ -58,6 +58,16 @@ Trước khi nộp: snapshot câu hỏi không có `is_correct`/`explanation`. S
 | GET | /admin/exams/id/stats | `{total_attempts,completed,average_score,pass_rate}` |
 
 `average_score` và `pass_rate` là số hoặc null nếu không có lượt hoàn thành. `pass_rate` dùng thang 0–100. Điểm cũng dùng thang 0–100. Đề đã xuất bản và đề lưu trữ không sửa được; ẩn câu hỏi bằng `is_active:false` thay vì xóa cứng.
+
+### US-01 đã triển khai — T05F912
+
+Backend tại `../SmartExam_Backend` nhận họ tên `name` (hoặc alias tương thích `full_name`,
+không gửi đồng thời cả hai). Họ tên sau trim dài 1–120 ký tự, email hợp lệ tối đa 254 ký tự,
+mật khẩu 8–128 ký tự và không chỉ chứa khoảng trắng. Mật khẩu được giữ nguyên khi băm bằng Argon2id.
+Email được trim, chuẩn hóa không phân biệt hoa/thường và có ràng buộc UNIQUE trong CSDL.
+Client gửi trường ngoài hợp đồng, kể cả `role`, bị từ chối bằng 422; server luôn gán `student`.
+Lỗi validation trả `{detail:[{loc,msg,type}]}` và không chứa dữ liệu đầu vào hay mật khẩu.
+Các endpoint khác trong bảng là hợp đồng cho những user story tiếp theo.
 
 Adapter gửi Authorization: Bearer ở mọi request khi có JWT. Với PATCH hiện tại có thể gửi cả `id`; Backend có thể bỏ qua hoặc loại bỏ tại api.js nếu schema forbid_extra. Tạo/sửa metadata đề và gán câu là hai request: BE cần cho phép retry PUT an toàn, frontend hiển thị lỗi nếu một bước thất bại. Nên gộp transaction ở BE hoặc trả mã đề đã tạo trong lỗi để tránh tạo lại đề khi retry sau lỗi mạng.
 

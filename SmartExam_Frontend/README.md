@@ -54,7 +54,13 @@ Cấu hình CORS trên Backend cho origin đang chạy FE. Khi FE chạy HTTPS, 
 Không có fallback ngầm sang demo nếu API lỗi. HTTP 401 yêu cầu đăng nhập lại; HTTP 403/lỗi nghiệp vụ hiển thị thông báo.
 JWT ở bộ nhớ JavaScript, không lưu localStorage/sessionStorage trong chế độ API. F5 sẽ cần đăng nhập lại; sau đó vào Lịch sử để tiếp tục lượt thi. Muốn giữ phiên xuyên F5 cần Backend bổ sung refresh token bằng cookie HttpOnly và cập nhật adapter.
 
-Đọc `API_CONTRACT.md` trước khi triển khai BE. Adapter dùng các endpoint trong backlog và thêm GET /admin/subjects, GET /admin/exams để liệt kê dữ liệu quản trị. Các DTO là hợp đồng đề xuất, cần thống nhất với BE1/BE2. Chưa kiểm thử với Backend thật vì chưa có máy chủ/API được cung cấp.
+US-01 đã có Backend thật tại `../SmartExam_Backend` (task **T05F912**). Chạy theo README ở thư mục đó,
+rồi mở **http://127.0.0.1:8000/#/register** để đăng ký vào CSDL. Backend phục vụ chính frontend này
+và tự cấu hình API cùng origin; không cần sửa `dist/config.js` cho cách chạy đó.
+Khi chạy riêng bằng `node server.mjs`, chế độ demo mặc định vẫn hoạt động như trước.
+
+Đọc `API_CONTRACT.md` để xem endpoint/DTO. Các backend ngoài đăng ký sinh viên thuộc user story khác
+và chưa được triển khai trong phần US-01 này; danh sách endpoint là hợp đồng phối hợp BE1/BE2.
 
 ## Cấu trúc
 
