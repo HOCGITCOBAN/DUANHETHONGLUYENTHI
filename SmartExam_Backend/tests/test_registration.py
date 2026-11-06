@@ -146,6 +146,45 @@ def test_duplicate_email_is_rejected_without_changing_the_existing_user(
     assert followup.status_code == 201, followup.text
 
 
+@pytest.mark.parametrize(
+    ("original_email", "duplicate_email"),
+    [
+        ("\u1fb7@example.com", "\u03b1\u0345\u0342@example.com"),
+        ("\u03b1\u0345\u0342@example.com", "\u1fb7@example.com"),
+    ],
+    ids=["composed-first", "decomposed-first"],
+)
+def test_canonically_equivalent_unicode_emails_cannot_create_duplicate_accounts(
+    app, client, registration, original_email, duplicate_email
+):
+    # Both spellings represent the same Greek local part, with combining marks reordered.
+    expected_email = "\u1fb6\u03b9@example.com"
+    original = client.post("/auth/register", json={**registration, "email": original_email})
+    assert original.status_code == 201, original.text
+    assert original.json()["email"] == expected_email
+    with app.state.session_factory() as session:
+        original_hash = session.scalar(select(User.password_hash))
+
+    duplicate = client.post(
+        "/auth/register",
+        json={
+            "name": "Different Person",
+            "email": duplicate_email,
+            "password": "Another secret password!",
+        },
+    )
+
+    assert duplicate.status_code == 409, duplicate.text
+    assert user_count(app) == 1
+    with app.state.session_factory() as session:
+        user = session.scalars(select(User)).one()
+        assert user.id == original.json()["id"]
+        assert user.full_name == registration["name"]
+        assert user.email == expected_email
+        assert user.password_hash == original_hash
+        assert password_hasher.verify(user.password_hash, registration["password"])
+
+
 def test_concurrent_duplicate_registration_creates_exactly_one_account(app, client, registration):
     barrier = Barrier(2)
 

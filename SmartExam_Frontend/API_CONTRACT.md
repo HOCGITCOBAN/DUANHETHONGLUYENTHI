@@ -1,6 +1,10 @@
 # Hợp đồng API đề xuất
 
-Tất cả ID là chuỗi; response JSON, không bọc `data`. Danh sách trả mảng JSON trực tiếp. Lỗi trả `{ "detail": "Thông báo tiếng Việt" }`. Các mutation có thể trả JSON hoặc HTTP 204, riêng tạo đề phải trả `{id}`. Auth dùng JSON, không phải form-urlencoded.
+Tất cả ID là chuỗi; response JSON, không bọc `data`. Danh sách trả mảng JSON trực tiếp.
+Lỗi nghiệp vụ trả `{ "detail": "Thông báo tiếng Việt" }`; riêng lỗi kiểm tra dữ liệu
+đăng ký (HTTP 422) trả `{ "detail": [{"loc": [], "msg": "...", "type": "..."}] }`.
+Các mutation có thể trả JSON hoặc HTTP 204, riêng tạo đề phải trả `{id}`.
+Auth dùng JSON, không phải form-urlencoded.
 
 ## Kiểu dữ liệu
 
@@ -64,7 +68,8 @@ Trước khi nộp: snapshot câu hỏi không có `is_correct`/`explanation`. S
 Backend tại `../SmartExam_Backend` nhận họ tên `name` (hoặc alias tương thích `full_name`,
 không gửi đồng thời cả hai). Họ tên sau trim dài 1–120 ký tự, email hợp lệ tối đa 254 ký tự,
 mật khẩu 8–128 ký tự và không chỉ chứa khoảng trắng. Mật khẩu được giữ nguyên khi băm bằng Argon2id.
-Email được trim, chuẩn hóa không phân biệt hoa/thường và có ràng buộc UNIQUE trong CSDL.
+Email được trim, chuẩn hóa Unicode NFC trước khi xử lý hoa/thường và có ràng buộc UNIQUE
+trong CSDL để chặn cả những địa chỉ có cách biểu diễn Unicode tương đương.
 Client gửi trường ngoài hợp đồng, kể cả `role`, bị từ chối bằng 422; server luôn gán `student`.
 Lỗi validation trả `{detail:[{loc,msg,type}]}` và không chứa dữ liệu đầu vào hay mật khẩu.
 Các endpoint khác trong bảng là hợp đồng cho những user story tiếp theo.

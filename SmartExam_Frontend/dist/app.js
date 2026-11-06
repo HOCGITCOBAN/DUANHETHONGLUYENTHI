@@ -13,33 +13,65 @@ const pill=(s,cls='')=>`<span class="pill ${cls}">${esc(s)}</span>`;
 function dialog(title,body){modal.innerHTML=`<div class="modalhead"><h2>${title}</h2><button class="close" aria-label="Đóng">×</button></div><div class="modalbody">${body}</div>`;modal.querySelector('.close').onclick=()=>modal.close();modal.showModal()}
 async function action(btn,fn){if(btn.disabled)return;btn.disabled=true;try{await fn()}catch(e){if(modal.open){let el=modal.querySelector('.error');if(!el){el=document.createElement('p');el.className='error';el.setAttribute('role','alert');modal.querySelector('.modalbody').append(el)}el.textContent=e.message}else toast(e.message)}finally{if(btn.isConnected)btn.disabled=false}}
 function formError(form,e){let el=form.querySelector('.error');if(!el){el=document.createElement('p');el.className='error';el.setAttribute('role','alert');form.append(el)}el.textContent=e.message}
-function onForm(id,fn){
-  $(id).onsubmit=async e=>{
-    e.preventDefault();
-    const f=e.target,b=f.querySelector('[type=submit]');
-    if(f.dataset.submitting==='true'||b.disabled)return;
-    const data=new FormData(f),controls=Array.from(f.elements),disabled=controls.map(el=>el.disabled);
-    f.dataset.submitting='true';f.setAttribute('aria-busy','true');
-    const error=f.querySelector('.error');if(error)error.textContent='';
-    controls.forEach(el=>{el.disabled=true});
-    try{await fn(data,f)}catch(error){formError(f,error)}finally{
-      controls.forEach((el,i)=>{el.disabled=disabled[i]});
-      delete f.dataset.submitting;f.removeAttribute('aria-busy');
+function onForm(id,fn){$(id).onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('[type=submit]');b.disabled=true;try{await fn(new FormData(f),f)}catch(error){formError(f,error)}finally{if(b.isConnected)b.disabled=false}}}
+function onRegistrationForm(id,fn){
+  $(id).onsubmit=async event=>{
+    event.preventDefault();
+    const form=event.target;
+    const submitButton=form.querySelector('[type=submit]');
+    if(form.dataset.submitting==='true'||submitButton.disabled)return;
+
+    const data=new FormData(form);
+    const controls=Array.from(form.elements);
+    const disabled=controls.map(control=>control.disabled);
+    form.dataset.submitting='true';
+    form.setAttribute('aria-busy','true');
+    const error=form.querySelector('.error');
+    if(error)error.textContent='';
+    controls.forEach(control=>{control.disabled=true});
+
+    try{
+      await fn(data,form);
+    }catch(error){
+      formError(form,error);
+    }finally{
+      controls.forEach((control,index)=>{control.disabled=disabled[index]});
+      delete form.dataset.submitting;
+      form.removeAttribute('aria-busy');
     }
+  };
+}
+async function submitRegistration(data,form){
+  const name=data.get('name').trim();
+  const email=data.get('email').trim();
+  const password=data.get('password');
+  const nameLength=Array.from(name).length;
+  const passwordLength=Array.from(password).length;
+
+  if(nameLength<1||nameLength>120){
+    throw Error('Họ và tên cần từ 1 đến 120 ký tự.');
   }
+  if(!email||email.length>254){
+    throw Error('Email cần đúng định dạng và tối đa 254 ký tự.');
+  }
+  if(passwordLength<8||passwordLength>128||!password.trim()){
+    throw Error('Mật khẩu cần từ 8 đến 128 ký tự và không chỉ gồm khoảng trắng.');
+  }
+  if(password!==data.get('confirm')){
+    throw Error('Mật khẩu nhập lại chưa khớp.');
+  }
+
+  await api.register({name,email,password});
+  form.elements.password.value='';
+  form.elements.confirm.value='';
+  toast(DEMO?'Tạo tài khoản thành công. Dùng mật khẩu demo123 để đăng nhập demo.':'Đăng ký thành công. Vui lòng đăng nhập.');
+  go('/login');
 }
 function shell(content){const admin=user.role==='admin';const links=admin?[['/dashboard','◫','Tổng quan'],['/admin/subjects','▦','Môn học'],['/admin/questions','☷','Ngân hàng câu hỏi'],['/admin/exams','▤','Quản lý đề thi'],['/admin/stats','◷','Thống kê']]:[['/dashboard','◫','Tổng quan'],['/exams','▤','Khám phá đề thi'],['/history','◷','Lịch sử làm bài'],['/profile','○','Tài khoản']];const path=route();root.innerHTML=`<div class="layout"><aside class="sidebar"><a class="logo" href="#/dashboard"><span class="logo-mark">S</span>SmartExam<span style="font-size:10px;color:#bad29d;align-self:start">®</span></a><div><p class="navlabel">${admin?'QUẢN TRỊ HỆ THỐNG':'KHÔNG GIAN HỌC TẬP'}</p><nav>${links.map(([p,i,n])=>`<a class="navlink ${path===p?'active':''}" href="#${p}"><span class="navicon">${i}</span>${n}</a>`).join('')}</nav></div><div class="sidebox"><strong>${admin?'Kiến thức tạo nên giá trị.':'Mỗi ngày một tiến bộ.'}</strong>${admin?'Xây dựng những bài thi chất lượng để học tập hiệu quả hơn.':'Một bài luyện tập hôm nay, một bước tự tin cho ngày mai.'}</div><div class="profile"><span class="avatar">${esc(user.name.split(' ').pop().slice(0,1))}</span><div style="font-size:12px"><strong>${esc(user.name)}</strong><small>${admin?'Quản trị viên':'Sinh viên'}</small></div><button class="logout" id="logout" aria-label="Đăng xuất" title="Đăng xuất">↪</button></div></aside><main class="main"><header class="topbar"><div class="crumb"><button class="mobile-menu" id="menubtn" aria-label="Mở menu">☰</button>Không gian ${admin?'quản trị':'học tập'} <span style="margin:0 9px">/</span><b style="color:var(--ink)">${links.find(x=>x[0]===path)?.[2]||'Bài thi'}</b></div><div class="top-right">${DEMO?'<span class="demo">Bản demo</span>':''}<span class="date">${new Date().toLocaleDateString('vi-VN',{day:'numeric',month:'long',year:'numeric'})}</span><span class="avatar" style="width:30px;height:30px;font-size:11px">${admin?'AD':'SV'}</span></div></header><div class="workspace">${content}<footer class="footer"><span>© 2026 SmartExam · Học chủ động, vững tương lai.</span><span>${DEMO?'Dữ liệu mẫu · lưu trên trình duyệt này':'Kết nối Backend'}</span></footer></div></main></div>`;$('#logout').onclick=()=>{api.logout();sessionStorage.removeItem('smartexam.session');user=null;go('/login');render()};$('#menubtn').onclick=()=>$('.layout').classList.toggle('menu-open')}
 function head(title,sub='',button='',eyebrow='SmartExam'){return `<div class="pagehead"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p class="sub">${sub}</p></div>${button}</div>`}
 function metrics(items){return `<div class="metrics">${items.map(([label,n,suffix])=>`<div class="metric"><div class="label">${label}</div><strong>${n}</strong><small>${suffix||''}</small></div>`).join('')}</div>`}
 function empty(title,desc){return `<div class="empty"><span style="font-size:30px">▤</span><strong>${title}</strong><span>${desc}</span></div>`}
-function auth(register=false){clearInterval(timer);root.innerHTML=`<div class="auth"><section class="authbrand"><a class="logo" href="#/login"><span class="logo-mark">S</span>SmartExam</a><div><span class="eyebrow" style="color:var(--lime)">LEARN. PRACTICE. GROW.</span><h1>Kiến thức hôm nay.<br><span>Tự tin ngày mai.</span></h1><p>Không gian luyện tập dành cho bạn.<br>Chủ động học, kiểm tra kiến thức và theo dõi<br>sự tiến bộ qua từng bài thi.</p><div class="hero-art"><div class="orbit"></div><div class="orbit second"></div><div class="book">S</div><span class="star">✦</span></div></div><p style="font-size:12px">SmartExam · Dự án học tập CNTT</p></section><section class="authform"><span class="eyebrow">CHÀO MỪNG ĐẾN SMARTEXAM</span><h2>${register?'Tạo tài khoản mới':'Sẵn sàng để tiến bộ?'}</h2><p class="sub" style="margin-bottom:28px">${register?'Bắt đầu hành trình học tập của bạn.':'Đăng nhập để tiếp tục hành trình học tập của bạn.'}</p><form id="auth-form" class="form">${register?'<label>Họ và tên<input name="name" required autocomplete="name" placeholder="Nhập họ và tên"></label>':''}<label>Email<input name="email" type="email" required autocomplete="email" value="${register?'':DEMO?'student@smartexam.vn':''}" placeholder="ban@example.com"></label><label>Mật khẩu<input name="password" type="password" required minlength="${register?8:6}" autocomplete="${register?'new-password':'current-password'}" value="${!register&&DEMO?'demo123':''}" placeholder="${register?'Từ 8 đến 128 ký tự':'Tối thiểu 6 ký tự'}"></label>${register?'<label>Nhập lại mật khẩu<input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>':''}<div class="error" role="alert"></div><button type="submit" class="btn">${register?'Đăng ký tài khoản':'Đăng nhập'} <span>↗</span></button></form><p class="sub" style="text-align:center;margin-top:22px">${register?'Đã có tài khoản?':'Bạn chưa có tài khoản?'} <a class="textbtn" href="#/${register?'login':'register'}">${register?'Đăng nhập':'Đăng ký ngay'}</a></p>${DEMO?`<div class="authnote"><b>Trải nghiệm bản demo</b><br>Sinh viên: student@smartexam.vn / demo123<br>Admin: admin@smartexam.vn / admin123<br><span>Tài khoản đăng ký mới dùng mật khẩu demo123 khi đăng nhập demo.</span><div class="row" style="margin-top:8px"><button type="button" class="textbtn" id="demo-student">Dùng Sinh viên</button><button type="button" class="textbtn" id="demo-admin">Dùng Admin</button></div></div>`:''}</section></div>`;onForm('#auth-form',async(d,f)=>{if(register){
-const name=d.get('name').trim(),email=d.get('email').trim(),password=d.get('password');
-if(Array.from(name).length<1||Array.from(name).length>120)throw Error('Họ và tên cần từ 1 đến 120 ký tự.');
-if(!email||email.length>254)throw Error('Email cần đúng định dạng và tối đa 254 ký tự.');
-if(Array.from(password).length<8||Array.from(password).length>128||!password.trim())throw Error('Mật khẩu cần từ 8 đến 128 ký tự và không chỉ gồm khoảng trắng.');
-if(password!==d.get('confirm'))throw Error('Mật khẩu nhập lại chưa khớp.');
-await api.register({name,email,password});
-f.elements.password.value='';f.elements.confirm.value='';toast(DEMO?'Tạo tài khoản thành công. Dùng mật khẩu demo123 để đăng nhập demo.':'Đăng ký thành công. Vui lòng đăng nhập.');go('/login')}else{const session=await api.login(d.get('email').trim(),d.get('password'));user=session.user;if(DEMO)sessionStorage.setItem('smartexam.session',JSON.stringify(session));go('/dashboard')}});if(DEMO){$('#demo-student').onclick=()=>{const f=$('#auth-form');f.elements.email.value='student@smartexam.vn';f.elements.password.value='demo123'};$('#demo-admin').onclick=()=>{const f=$('#auth-form');f.elements.email.value='admin@smartexam.vn';f.elements.password.value='admin123'}}}
+function auth(register=false){clearInterval(timer);root.innerHTML=`<div class="auth"><section class="authbrand"><a class="logo" href="#/login"><span class="logo-mark">S</span>SmartExam</a><div><span class="eyebrow" style="color:var(--lime)">LEARN. PRACTICE. GROW.</span><h1>Kiến thức hôm nay.<br><span>Tự tin ngày mai.</span></h1><p>Không gian luyện tập dành cho bạn.<br>Chủ động học, kiểm tra kiến thức và theo dõi<br>sự tiến bộ qua từng bài thi.</p><div class="hero-art"><div class="orbit"></div><div class="orbit second"></div><div class="book">S</div><span class="star">✦</span></div></div><p style="font-size:12px">SmartExam · Dự án học tập CNTT</p></section><section class="authform"><span class="eyebrow">CHÀO MỪNG ĐẾN SMARTEXAM</span><h2>${register?'Tạo tài khoản mới':'Sẵn sàng để tiến bộ?'}</h2><p class="sub" style="margin-bottom:28px">${register?'Bắt đầu hành trình học tập của bạn.':'Đăng nhập để tiếp tục hành trình học tập của bạn.'}</p><form id="auth-form" class="form">${register?'<label>Họ và tên<input name="name" required autocomplete="name" placeholder="Nhập họ và tên"></label>':''}<label>Email<input name="email" type="email" required autocomplete="email" value="${register?'':DEMO?'student@smartexam.vn':''}" placeholder="ban@example.com"></label><label>Mật khẩu<input name="password" type="password" required minlength="${register?8:6}" autocomplete="${register?'new-password':'current-password'}" value="${!register&&DEMO?'demo123':''}" placeholder="${register?'Từ 8 đến 128 ký tự':'Tối thiểu 6 ký tự'}"></label>${register?'<label>Nhập lại mật khẩu<input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>':''}<div class="error" role="alert"></div><button type="submit" class="btn">${register?'Đăng ký tài khoản':'Đăng nhập'} <span>↗</span></button></form><p class="sub" style="text-align:center;margin-top:22px">${register?'Đã có tài khoản?':'Bạn chưa có tài khoản?'} <a class="textbtn" href="#/${register?'login':'register'}">${register?'Đăng nhập':'Đăng ký ngay'}</a></p>${DEMO?`<div class="authnote"><b>Trải nghiệm bản demo</b><br>Sinh viên: student@smartexam.vn / demo123<br>Admin: admin@smartexam.vn / admin123<br><span>Tài khoản đăng ký mới dùng mật khẩu demo123 khi đăng nhập demo.</span><div class="row" style="margin-top:8px"><button type="button" class="textbtn" id="demo-student">Dùng Sinh viên</button><button type="button" class="textbtn" id="demo-admin">Dùng Admin</button></div></div>`:''}</section></div>`;if(register){onRegistrationForm('#auth-form',submitRegistration)}else{onForm('#auth-form',async d=>{const session=await api.login(d.get('email').trim(),d.get('password'));user=session.user;if(DEMO)sessionStorage.setItem('smartexam.session',JSON.stringify(session));go('/dashboard')})}if(DEMO){$('#demo-student').onclick=()=>{const f=$('#auth-form');f.elements.email.value='student@smartexam.vn';f.elements.password.value='demo123'};$('#demo-admin').onclick=()=>{const f=$('#auth-form');f.elements.email.value='admin@smartexam.vn';f.elements.password.value='admin123'}}}
 function examCard(e,i=0){const colors=[['#e8eedc','#53713d','JS'],['#e1ecec','#4b7777','SQL'],['#eee5dc','#956f46','Ag']][i%3];return `<article class="card"><div class="cardtop" style="--tint:${colors[0]};--tone:${colors[1]}"><span class="subject-icon">${colors[2]}</span>${pill(diff[e.difficulty]||'Trung bình')}</div><div class="cardbody"><span class="eyebrow" style="font-size:9px;letter-spacing:1.3px">${esc(subject(e.subject_id))}</span><h3>${esc(e.title)}</h3><p>${esc(e.description||'Ôn tập kiến thức và đánh giá năng lực của bạn.')}</p><div class="meta"><span>◷ ${e.duration_minutes} phút</span><span>▤ ${e.question_count??e.questions.length} câu hỏi</span></div><div class="cardfoot"><span>Đạt từ ${e.pass_score} điểm</span><button class="btn small start" data-id="${e.id}">Luyện tập <span>↗</span></button></div></div></article>`}
 function bindStart(){document.querySelectorAll('.start').forEach(b=>b.onclick=()=>dialog('Trước khi bắt đầu',`<p class="sub">${esc(exams.find(e=>e.id===b.dataset.id).title)}</p><p class="sub">Thời gian được tính ngay khi bắt đầu. Đáp án tự động lưu sau mỗi lần chọn. Bạn có thể tải lại trang để tiếp tục.</p><p class="sub">Số lượt đã dùng: ${exams.find(e=>e.id===b.dataset.id).used_attempts??0}/${exams.find(e=>e.id===b.dataset.id).max_attempts}</p><div class="row" style="margin-top:24px"><button class="btn" id="confirm-start" data-id="${b.dataset.id}">Bắt đầu làm bài ↗</button><button class="btn secondary" id="cancel-start">Để sau</button></div>`))}
 // One delegated handler is installed below for modal actions.

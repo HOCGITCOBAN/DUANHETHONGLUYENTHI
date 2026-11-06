@@ -18,15 +18,19 @@
 
 ## Cập nhật US-01 / T05F912 — 06/11/2026
 
-- Backend: `python -m pytest -q` đạt **42 kiểm thử**, gồm lưu tài khoản thật, Argon2id,
+- Backend: `python -m pytest -q` đạt **44 kiểm thử**, gồm lưu tài khoản thật, Argon2id,
   email trùng/đồng thời, quyền student, dữ liệu biên, alias tên, lỗi không lộ mật khẩu,
   migration và cấu hình frontend/CORS.
+- Email Unicode tương đương được kiểm tra theo cả hai thứ tự gửi: lần đầu tạo tài khoản,
+  lần sau trả 409 và giữ nguyên tài khoản ban đầu.
 - Frontend: `node tests/registration.mjs` đạt **7 kiểm thử** cho HTTP adapter đăng ký;
   `node tests/domain.mjs` vẫn PASS. Kiểm tra cú pháp app.js/api.js và Ruff backend đều đạt.
 - Chromium với FastAPI/CSDL thật: form gửi đăng ký trả 201 và hiển thị thành công;
   email trùng trả 409; email lỗi định dạng phía server trả 422 với thông báo tiếng Việt;
   mất kết nối hiển thị lỗi và mở lại form. Mật khẩu dài bị từ chối, không bị cắt ngắn.
 - Form đăng ký được kiểm tra ở 360, 390, 768 và 1440px: không tràn ngang, không có lỗi JavaScript.
+- Form đăng ký: hai lần gửi liên tiếp chỉ tạo một request; các trường được mở lại sau lỗi
+  409/mất kết nối; mật khẩu và xác nhận được xóa sau thành công. Việc khóa form này chỉ áp dụng cho đăng ký.
 - Chromium với Node demo: sinh viên có sẵn đăng nhập dashboard, đăng xuất, đăng ký mới,
   và sinh viên demo mới đăng nhập bằng demo123 đều hoạt động. Không có lỗi JavaScript.
 

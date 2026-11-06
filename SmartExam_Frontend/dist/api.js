@@ -34,9 +34,18 @@ function expire(a){if(a.status==='in_progress'&&Date.now()>=a.deadline_at)finish
 function safe(a){const v=clone(expire(a));if(v.status==='in_progress')for(const q of v.snapshot.questions){delete q.explanation;for(const o of q.options)delete o.is_correct}return v}
 function apiErrorMessage(path,status,data){
   if(status===422&&path==='/auth/register'){
-    const messages={name:'Họ và tên cần từ 1 đến 120 ký tự.',full_name:'Họ và tên cần từ 1 đến 120 ký tự.',email:'Email chưa đúng định dạng hoặc quá dài.',password:'Mật khẩu cần từ 8 đến 128 ký tự và không chỉ gồm khoảng trắng.'};
-    const fields=Array.isArray(data?.detail)?data.detail.map(error=>Array.isArray(error?.loc)?error.loc[1]:null):[];
-    const safe=[...new Set(fields.filter(field=>Object.hasOwn(messages,field)).map(field=>messages[field]))];
+    const messages={
+      name:'Họ và tên cần từ 1 đến 120 ký tự.',
+      full_name:'Họ và tên cần từ 1 đến 120 ký tự.',
+      email:'Email chưa đúng định dạng hoặc quá dài.',
+      password:'Mật khẩu cần từ 8 đến 128 ký tự và không chỉ gồm khoảng trắng.',
+    };
+    const fields=Array.isArray(data?.detail)
+      ?data.detail.map(error=>Array.isArray(error?.loc)?error.loc[1]:null)
+      :[];
+    const safe=[...new Set(fields
+      .filter(field=>Object.hasOwn(messages,field))
+      .map(field=>messages[field]))];
     return safe.join(' ')||'Thông tin đăng ký chưa hợp lệ. Vui lòng kiểm tra lại.';
   }
   return typeof data?.detail==='string'?data.detail:`Yêu cầu thất bại (${status}).`;
@@ -59,7 +68,21 @@ async function request(path,method='GET',body){
 }
 export const api={
 async login(email,password){if(!DEMO){const data=await request('/auth/login','POST',{email,password});token=data.access_token;user=await request('/auth/me');return {user,token}}const u=db.users.find(u=>u.email.toLowerCase()===email.toLowerCase());if(!u||password!==(u.role==='admin'?'admin123':'demo123'))fail('Email hoặc mật khẩu chưa đúng. Tài khoản demo dùng mật khẩu ghi bên dưới.');user=u;return {user:clone(u),token:'demo'}},
-async register(data){if(!DEMO)return request('/auth/register','POST',{name:data.name,email:data.email,password:data.password});if(db.users.some(u=>u.email.toLowerCase()===data.email.toLowerCase()))fail('Email đã được sử dụng.');db.users.push({id:uid(),name:data.name,email:data.email.toLowerCase(),role:'student'});save();return true},
+async register(data){
+  if(!DEMO){
+    return request('/auth/register','POST',{
+      name:data.name,
+      email:data.email,
+      password:data.password,
+    });
+  }
+  if(db.users.some(u=>u.email.toLowerCase()===data.email.toLowerCase())){
+    fail('Email đã được sử dụng.');
+  }
+  db.users.push({id:uid(),name:data.name,email:data.email.toLowerCase(),role:'student'});
+  save();
+  return true;
+},
 async restore(session){token=session.token;if(!DEMO){user=await request('/auth/me');return user}user=db.users.find(u=>u.id===session.user.id);if(!user)fail('Phiên đăng nhập không hợp lệ.');return clone(user)},
 logout(){token=null;user=null},
 async subjects(all=false){if(!DEMO)return request(all?'/admin/subjects':'/subjects');requireUser();if(all)admin();return clone(db.subjects.filter(s=>all||s.is_active))},

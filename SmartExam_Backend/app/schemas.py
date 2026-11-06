@@ -1,4 +1,5 @@
 from typing import Literal
+from unicodedata import normalize
 
 from pydantic import (
     AliasChoices,
@@ -29,8 +30,9 @@ class RegisterRequest(BaseModel):
     @classmethod
     def normalize_email(cls, value: object) -> object:
         # App policy: the complete email address is case-insensitive.
+        # Compose equivalent Unicode spellings before casefold changes combining marks.
         # Validate the final form because Unicode casefold can expand its length.
-        return value.strip().casefold() if isinstance(value, str) else value
+        return normalize("NFC", value.strip()).casefold() if isinstance(value, str) else value
 
     @field_validator("password")
     @classmethod

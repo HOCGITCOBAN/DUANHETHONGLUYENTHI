@@ -90,8 +90,8 @@ curl -i http://127.0.0.1:8000/auth/register \
 Các giới hạn độ dài dưới đây là quyết định triển khai cho những điểm backlog chưa quy định:
 
 - Họ tên: bỏ khoảng trắng đầu/cuối, từ 1 đến 120 ký tự, không rỗng sau khi xử lý.
-- Email: bỏ khoảng trắng đầu/cuối, chuẩn hóa không phân biệt hoa/thường bằng
-  `casefold()`, sau đó kiểm tra định dạng và giới hạn 254 ký tự.
+- Email: bỏ khoảng trắng đầu/cuối, chuẩn hóa Unicode NFC rồi xử lý không phân biệt
+  hoa/thường bằng `casefold()`, sau đó kiểm tra định dạng và giới hạn 254 ký tự.
   `Student@EXAMPLE.COM` và `student@example.com` được xem là cùng một tài khoản.
 - Mật khẩu: từ 8 đến 128 ký tự, không chỉ gồm khoảng trắng. Giữ nguyên mật khẩu,
   kể cả khoảng trắng đầu/cuối; không tự cắt ngắn.
