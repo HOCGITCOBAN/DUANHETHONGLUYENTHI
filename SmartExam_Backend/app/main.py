@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import sessionmaker
 
+from app.admin import admin_router
 from app.database import get_database_url, make_engine
 from app.routes import router
 
@@ -35,6 +36,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     application.state.engine = engine
     application.state.session_factory = sessionmaker(bind=engine)
     application.include_router(router)
+    application.include_router(admin_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[
