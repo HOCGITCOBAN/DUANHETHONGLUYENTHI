@@ -1,5 +1,21 @@
 # SmartExam Backend — US-01 / T05F912
 
+## Login and JWT
+
+`POST /auth/login` accepts `{ "email": "student@example.com", "password": "..." }` and
+returns `{ "access_token": "...", "token_type": "bearer" }`. Send the token as
+`Authorization: Bearer <access_token>` to `GET /auth/me` to retrieve the current user's
+public profile. Access tokens use HS256 and expire after 30 minutes. Invalid credentials,
+expired tokens, and invalid tokens return HTTP 401.
+
+Set `JWT_SECRET_KEY` to a stable, randomly generated secret of at least 32 bytes for any
+deployment. If omitted, the app creates a process-local random key for local development;
+tokens then stop working after a server restart. For example in PowerShell:
+
+```powershell
+$env:JWT_SECRET_KEY = "replace-with-a-long-random-secret-value"
+```
+
 `POST /auth/register` tạo tài khoản sinh viên từ họ tên, email và mật khẩu.
 Backend băm mật khẩu bằng Argon2id, từ chối email đã tồn tại và gán quyền `student`.
 Tài khoản được lưu bằng SQLAlchemy trong SQLite; Alembic quản lý migration bảng `users`.

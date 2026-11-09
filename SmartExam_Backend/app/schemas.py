@@ -42,10 +42,27 @@ class RegisterRequest(BaseModel):
         return value
 
 
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr = Field(max_length=254)
+    password: SecretStr = Field(min_length=1, max_length=128)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return normalize("NFC", value.strip()).casefold() if isinstance(value, str) else value
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     name: str = Field(validation_alias="full_name")
     email: EmailStr
-    role: Literal["student"]
+    role: Literal["student", "admin"]
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"

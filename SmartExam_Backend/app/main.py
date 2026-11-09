@@ -44,7 +44,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             ).split(",")
             if origin.strip()
         ],
-        allow_methods=["POST"],
+        allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "Authorization"],
     )
 
