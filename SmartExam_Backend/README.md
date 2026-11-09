@@ -16,6 +16,29 @@ tokens then stop working after a server restart. For example in PowerShell:
 $env:JWT_SECRET_KEY = "replace-with-a-long-random-secret-value"
 ```
 
+## Phân quyền admin (`/admin/*`)
+
+Mọi route thêm vào `admin_router` (`app/admin.py`) tự động yêu cầu quyền admin:
+
+- Không có token, token sai hoặc hết hạn: **401** (từ `current_user`).
+- Token hợp lệ nhưng tài khoản là `student`: **403**
+  `{"detail": "Bạn không có quyền thực hiện thao tác này."}`.
+- Tài khoản `admin`: được xử lý bình thường.
+
+Role được đọc từ bảng `users` ở mỗi request, không dựa vào claim `role` trong token, nên thăng
+hoặc hạ quyền có hiệu lực ngay. Route quản trị mới chỉ cần:
+
+```python
+from app.admin import admin_router
+
+
+@admin_router.get("/subjects")
+def list_subjects(): ...
+```
+
+Đăng ký luôn tạo `student`; tài khoản admin phải tạo tay trong CSDL, ví dụ
+`UPDATE users SET role = 'admin' WHERE email = '...';`. Kiểm thử: `tests/test_admin_guard.py`.
+
 `POST /auth/register` tạo tài khoản sinh viên từ họ tên, email và mật khẩu.
 Backend băm mật khẩu bằng Argon2id, từ chối email đã tồn tại và gán quyền `student`.
 Tài khoản được lưu bằng SQLAlchemy trong SQLite; Alembic quản lý migration bảng `users`.
@@ -187,6 +210,7 @@ app/
   models.py            # Bảng users
   schemas.py           # Request/response công khai
   routes.py            # POST /auth/register
+  admin.py             # admin_router + require_admin (401/403 cho /admin/*)
   security.py          # Argon2id
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration
