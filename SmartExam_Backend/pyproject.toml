@@ -13,6 +13,7 @@ dependencies = [
     "SQLAlchemy>=2.0,<3",
     "alembic>=1.13,<2",
     "argon2-cffi>=23.1,<26",
+    "bcrypt>=4.1,<6",
     "pydantic>=2.10,<3",
     "email-validator>=2.2,<3",
 ]

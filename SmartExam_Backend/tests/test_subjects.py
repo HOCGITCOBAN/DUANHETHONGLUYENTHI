@@ -63,3 +63,22 @@ def test_subject_catalog_permissions_and_crud(tmp_path):
             )
     finally:
         app.state.engine.dispose()
+
+
+def test_cors_allows_local_frontend_ports_and_patch(tmp_path):
+    app = create_app(f"sqlite:///{tmp_path / 'cors.sqlite3'}")
+    try:
+        with TestClient(app) as client:
+            response = client.options(
+                "/admin/subjects/example",
+                headers={
+                    "Origin": "http://localhost:5501",
+                    "Access-Control-Request-Method": "PATCH",
+                    "Access-Control-Request-Headers": "authorization,content-type",
+                },
+            )
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "http://localhost:5501"
+        assert "PATCH" in response.headers["access-control-allow-methods"]
+    finally:
+        app.state.engine.dispose()

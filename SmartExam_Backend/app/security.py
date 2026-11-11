@@ -6,7 +6,9 @@ import os
 import secrets
 import time
 
+import bcrypt
 from argon2 import PasswordHasher, Type
+from argon2.exceptions import VerificationError
 
 JWT_ISSUER = "smartexam"
 JWT_ACCESS_TOKEN_SECONDS = 30 * 60
@@ -26,6 +28,30 @@ password_hasher = PasswordHasher(
     salt_len=16,
     type=Type.ID,
 )
+
+
+def hash_password(password: str) -> str:
+    """Create a bcrypt hash for new passwords (bcrypt accepts at most 72 bytes)."""
+    encoded = password.encode("utf-8")
+    if len(encoded) > 72:
+        raise ValueError("Password exceeds bcrypt's 72-byte limit")
+    return bcrypt.hashpw(encoded, bcrypt.gensalt(rounds=12)).decode("ascii")
+
+
+def verify_password(stored_hash: str, password: str) -> tuple[bool, bool]:
+    """Return (valid, needs_rehash), supporting legacy Argon2id hashes."""
+    encoded = password.encode("utf-8")
+    if stored_hash.startswith(("$2a$", "$2b$", "$2y$")):
+        if len(encoded) > 72:
+            return False, False
+        try:
+            return bcrypt.checkpw(encoded, stored_hash.encode("ascii")), False
+        except (ValueError, TypeError):
+            return False, False
+    try:
+        return password_hasher.verify(stored_hash, password), True
+    except VerificationError:
+        return False, False
 
 
 def _b64url(value: bytes) -> str:

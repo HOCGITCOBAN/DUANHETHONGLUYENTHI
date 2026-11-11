@@ -16,6 +16,8 @@ Cách dùng VS Code:
 
 Không mở file bằng double-click/file:// vì ES modules cần HTTP server.
 
+`CHAY_SMARTEXAM.bat` starts the Backend (including database migrations) and the Frontend. The Frontend server may choose a free port from 5500 to 5510 if the default port is busy. `node server.mjs` starts only the Frontend; when using Live Server, start `SmartExam_Backend/CHAY_BACKEND.bat` in a separate window as well, because the default `api-demo` mode uses the Backend for login.
+
 ## Tài khoản demo
 
 | Vai trò | Email | Mật khẩu demo |

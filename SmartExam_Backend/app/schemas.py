@@ -37,6 +37,8 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def reject_blank_password(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value().encode("utf-8")) > 72:
+            raise ValueError("Password cannot exceed 72 UTF-8 bytes with bcrypt.")
         if not value.get_secret_value().strip():
             raise ValueError("Mật khẩu không được chỉ chứa khoảng trắng.")
         return value

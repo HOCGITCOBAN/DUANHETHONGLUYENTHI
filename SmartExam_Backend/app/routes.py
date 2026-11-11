@@ -1,6 +1,5 @@
 from typing import Annotated
 
-from argon2.exceptions import VerificationError
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Subject, User
 from app.schemas import LoginRequest, RegisterRequest, SubjectResponse, TokenResponse, UserResponse
-from app.security import create_access_token, decode_access_token, password_hasher
+from app.security import create_access_token, decode_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Đăng ký"])
 bearer = HTTPBearer(auto_error=False)
@@ -49,7 +48,7 @@ def register(payload: RegisterRequest, db: Annotated[Session, Depends(get_db)]) 
     user = User(
         full_name=payload.full_name,
         email=payload.email,
-        password_hash=password_hasher.hash(payload.password.get_secret_value()),
+        password_hash=hash_password(payload.password.get_secret_value()),
         role="student",
     )
     db.add(user)
@@ -79,20 +78,20 @@ def register(payload: RegisterRequest, db: Annotated[Session, Depends(get_db)]) 
 )
 def login(payload: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> TokenResponse:
     user = db.scalar(select(User).where(User.email == payload.email))
-    valid_password = False
+    valid_password = needs_rehash = False
     if user is not None:
-        try:
-            valid_password = password_hasher.verify(
-                user.password_hash, payload.password.get_secret_value()
-            )
-        except VerificationError:
-            pass
+        valid_password, needs_rehash = verify_password(
+            user.password_hash, payload.password.get_secret_value()
+        )
     if not valid_password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email hoặc mật khẩu không đúng.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if needs_rehash:
+        user.password_hash = hash_password(payload.password.get_secret_value())
+        db.commit()
     return TokenResponse(access_token=create_access_token(user.id, user.role))
 
 
