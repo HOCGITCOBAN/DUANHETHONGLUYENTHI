@@ -44,7 +44,7 @@ Trước khi nộp: snapshot câu hỏi không có `is_correct`/`explanation`. S
 | GET | /auth/me | User |
 | GET | /subjects | Subject[] chỉ môn mở |
 | GET | /admin/subjects | Subject[] toàn bộ |
-| POST/PATCH | /admin/subjects[/id] | `{name,slug,is_active}` |
+| POST/PATCH | /admin/subjects[/id] | Admin; `{name,slug,is_active}`; slug tr?ng tr? 409; ?n b?ng `is_active:false` |
 | GET | /admin/questions | Question[] toàn bộ, có đáp án |
 | POST/PATCH | /admin/questions[/id] | `{subject_id,text,options,explanation,difficulty,is_active}` |
 | GET | /exams | Exam[] chỉ published/môn mở |

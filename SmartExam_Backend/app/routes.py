@@ -8,12 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
-from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.models import Subject, User
+from app.schemas import LoginRequest, RegisterRequest, SubjectResponse, TokenResponse, UserResponse
 from app.security import create_access_token, decode_access_token, password_hasher
 
 router = APIRouter(prefix="/auth", tags=["Đăng ký"])
 bearer = HTTPBearer(auto_error=False)
+subjects_router = APIRouter(tags=["Subjects"])
 
 
 def current_user(
@@ -98,3 +99,10 @@ def login(payload: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> Tok
 @router.get("/me", response_model=UserResponse, summary="Thông tin tài khoản đang đăng nhập")
 def me(user: Annotated[User, Depends(current_user)]) -> User:
     return user
+
+
+@subjects_router.get("/subjects", response_model=list[SubjectResponse])
+def list_open_subjects(
+    _user: Annotated[User, Depends(current_user)], db: Annotated[Session, Depends(get_db)]
+) -> list[Subject]:
+    return list(db.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name)))

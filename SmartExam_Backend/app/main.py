@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.admin import admin_router
 from app.database import get_database_url, make_engine
-from app.routes import router
+from app.routes import router, subjects_router
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "SmartExam_Frontend" / "dist"
 
@@ -36,6 +36,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     application.state.engine = engine
     application.state.session_factory = sessionmaker(bind=engine)
     application.include_router(router)
+    application.include_router(subjects_router)
     application.include_router(admin_router)
     application.add_middleware(
         CORSMiddleware,
@@ -46,7 +47,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             ).split(",")
             if origin.strip()
         ],
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["Content-Type", "Authorization"],
     )
 

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, String, UniqueConstraint, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, String, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -26,4 +26,16 @@ class User(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
         server_default=func.current_timestamp(),
+    )
+
+
+class Subject(Base):
+    __tablename__ = "subjects"
+    __table_args__ = (UniqueConstraint("slug", name="uq_subjects_slug"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
     )

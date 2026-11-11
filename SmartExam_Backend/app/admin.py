@@ -1,9 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.models import User
+from app.database import get_db
+from app.models import Subject, User
 from app.routes import current_user
+from app.schemas import SubjectResponse, SubjectWrite
 
 
 def require_admin(user: Annotated[User, Depends(current_user)]) -> User:
@@ -23,3 +28,39 @@ admin_router = APIRouter(
     tags=["Quản trị"],
     dependencies=[Depends(require_admin)],
 )
+
+
+@admin_router.get("/subjects", response_model=list[SubjectResponse])
+def list_subjects(db: Annotated[Session, Depends(get_db)]) -> list[Subject]:
+    return list(db.scalars(select(Subject).order_by(Subject.name)))
+
+
+@admin_router.post("/subjects", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)
+def create_subject(payload: SubjectWrite, db: Annotated[Session, Depends(get_db)]) -> Subject:
+    subject = Subject(**payload.model_dump())
+    db.add(subject)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Slug môn học đã tồn tại.") from None
+    db.refresh(subject)
+    return subject
+
+
+@admin_router.patch("/subjects/{subject_id}", response_model=SubjectResponse)
+def update_subject(
+    subject_id: str, payload: SubjectWrite, db: Annotated[Session, Depends(get_db)]
+) -> Subject:
+    subject = db.get(Subject, subject_id)
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy môn học.")
+    for key, value in payload.model_dump().items():
+        setattr(subject, key, value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Slug môn học đã tồn tại.") from None
+    db.refresh(subject)
+    return subject
