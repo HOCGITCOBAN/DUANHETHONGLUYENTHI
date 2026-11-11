@@ -1,5 +1,21 @@
 # SmartExam Frontend
 
+## US-06 — Ngân hàng câu hỏi / T05F917
+
+Đã kết nối API thật cho tạo, sửa, ẩn/mở câu hỏi, môn học, độ khó và 2–6 phương án
+với đúng một đáp án đúng. Chạy migration và FastAPI theo `../SmartExam_Backend/README.md`,
+rồi mở frontend do backend phục vụ và đăng nhập tài khoản admin. Admin được đưa tới
+Ngân hàng câu hỏi; tạo môn học trước nếu danh mục trống. Trang này không phụ thuộc API đề thi.
+
+Form hỗ trợ thêm/xóa phương án (giới hạn 2–6), chọn một đáp án bằng radio,
+lời giải không bắt buộc, trạng thái hoạt động và lọc theo môn/độ khó/từ khóa.
+Bỏ chọn “Câu hỏi đang hoạt động” để ẩn; dữ liệu vẫn tồn tại và có thể mở lại.
+Lỗi API được hiển thị trong form để sửa và gửi lại.
+
+`node server.mjs` vẫn dùng cấu hình `api-demo`: đăng nhập thật, nghiệp vụ câu hỏi/thi
+mô phỏng trên trình duyệt. Dùng frontend cùng origin từ FastAPI để lưu câu hỏi thật.
+Kiểm thử adapter: `node tests/questions.mjs`.
+
 Toàn bộ FE1 + FE2 theo Product Backlog SmartExam: giao diện Sinh viên và Admin.
 HTML, CSS, JavaScript ES modules thuần; không cần npm install, không dùng dịch vụ trả phí.
 

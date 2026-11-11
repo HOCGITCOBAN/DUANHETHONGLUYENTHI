@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Subject, User
+from app.questions import router as questions_router
 from app.routes import current_user
 from app.schemas import SubjectResponse, SubjectWrite
 
@@ -28,6 +29,7 @@ admin_router = APIRouter(
     tags=["Quản trị"],
     dependencies=[Depends(require_admin)],
 )
+admin_router.include_router(questions_router)
 
 
 @admin_router.get("/subjects", response_model=list[SubjectResponse])

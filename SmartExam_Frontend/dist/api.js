@@ -35,6 +35,21 @@ function finish(a,expired=false){if(a.status!=='in_progress')return a;const exam
 function expire(a){if(a.status==='in_progress'&&Date.now()>=a.deadline_at)finish(a,true);return a}
 function safe(a){const v=clone(expire(a));if(v.status==='in_progress')for(const q of v.snapshot.questions){delete q.explanation;for(const o of q.options)delete o.is_correct}return v}
 function apiErrorMessage(path,status,data){
+  if(status===422&&path.startsWith('/admin/questions')){
+    const messages={
+      subject_id:'Vui lòng chọn môn học hợp lệ.',
+      text:'Nội dung câu hỏi cần từ 1 đến 2000 ký tự.',
+      difficulty:'Độ khó cần là Cơ bản, Trung bình hoặc Nâng cao.',
+      explanation:'Lời giải không được quá 5000 ký tự.',
+      options:'Cần 2–6 phương án không rỗng (tối đa 1000 ký tự mỗi phương án), mã không trùng và đúng một đáp án đúng.',
+      is_active:'Trạng thái câu hỏi chưa hợp lệ.',
+    };
+    const fields=Array.isArray(data?.detail)
+      ?data.detail.map(error=>Array.isArray(error?.loc)?error.loc[1]:null)
+      :[];
+    return [...new Set(fields.filter(field=>Object.hasOwn(messages,field)).map(field=>messages[field]))]
+      .join(' ')||'Thông tin câu hỏi chưa hợp lệ. Vui lòng kiểm tra lại.';
+  }
   if(status===422&&path==='/auth/register'){
     const messages={
       name:'Họ và tên cần từ 1 đến 120 ký tự.',
@@ -88,9 +103,28 @@ async register(data){
 async restore(session){token=session.token;if(API_AUTH){user=await request('/auth/me');return user}user=db.users.find(u=>u.id===session.user.id);if(!user)fail('Phiên đăng nhập không hợp lệ.');return clone(user)},
 logout(){token=null;user=null;sessionStorage.removeItem('smartexam.session')},
 async subjects(all=false){if(!LOCAL_DATA)return request(all?'/admin/subjects':'/subjects');requireUser();if(all)admin();return clone(db.subjects.filter(s=>all||s.is_active))},
-async saveSubject(data){if(!LOCAL_DATA)return request('/admin/subjects'+(data.id?'/'+data.id:''),data.id?'PATCH':'POST',data);admin();if(db.subjects.some(s=>s.slug===data.slug&&s.id!==data.id))fail('Slug môn học đã tồn tại.');const old=db.subjects.find(s=>s.id===data.id);old?Object.assign(old,data):db.subjects.push({...data,id:uid()});save()},
-async questions(){if(!LOCAL_DATA)return request('/admin/questions');admin();return clone(db.questions)},
-async saveQuestion(data){if(!LOCAL_DATA)return request('/admin/questions'+(data.id?'/'+data.id:''),data.id?'PATCH':'POST',data);admin();if(data.id&&db.exams.some(e=>e.status==='published'&&e.questions.some(q=>q.question_id===data.id)))fail('Câu hỏi thuộc đề đã xuất bản, không thể sửa trực tiếp.');if(data.options.length<2||data.options.length>6||data.options.filter(o=>o.is_correct).length!==1)fail('Cần 2–6 phương án và đúng một đáp án đúng.');const old=db.questions.find(q=>q.id===data.id);old?Object.assign(old,data):db.questions.push({...data,id:uid()});save()},
+async saveSubject(data){if(!LOCAL_DATA){const {id,...payload}=data;return request('/admin/subjects'+(id?'/'+encodeURIComponent(id):''),id?'PATCH':'POST',payload)}admin();if(db.subjects.some(s=>s.slug===data.slug&&s.id!==data.id))fail('Slug môn học đã tồn tại.');const old=db.subjects.find(s=>s.id===data.id);old?Object.assign(old,data):db.subjects.push({...data,id:uid()});save()},
+async questions(filters={}){
+  const query=new URLSearchParams();
+  for(const key of ['subject_id','difficulty','is_active']){
+    if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,filters[key]);
+  }
+  if(!LOCAL_DATA)return request('/admin/questions'+(query.size?'?'+query:''));
+  admin();return clone(db.questions.filter(q=>[...query].every(([key,value])=>String(q[key])===value)));
+},
+async saveQuestion(data){
+  if(!LOCAL_DATA){
+    const payload={};
+    for(const key of ['subject_id','text','explanation','difficulty','is_active']){
+      if(Object.hasOwn(data,key))payload[key]=data[key];
+    }
+    if(Object.hasOwn(data,'options'))payload.options=data.options.map(({id,text,is_correct})=>({...(id?{id}:{}),text,is_correct}));
+    return request('/admin/questions'+(data.id?'/'+encodeURIComponent(data.id):''),data.id?'PATCH':'POST',payload);
+  }
+  admin();if(data.id&&db.exams.some(e=>e.status==='published'&&e.questions.some(q=>q.question_id===data.id)))fail('Câu hỏi thuộc đề đã xuất bản, không thể sửa trực tiếp.');
+  if(data.options.length<2||data.options.length>6||data.options.filter(o=>o.is_correct).length!==1)fail('Cần 2–6 phương án và đúng một đáp án đúng.');
+  const old=db.questions.find(q=>q.id===data.id);old?Object.assign(old,data):db.questions.push({...data,id:uid()});save();
+},
 async exams(all=false){if(!LOCAL_DATA)return request(all?'/admin/exams':'/exams');requireUser();if(all)admin();return clone(db.exams.filter(e=>all||(e.status==='published'&&db.subjects.some(s=>s.id===e.subject_id&&s.is_active))).map(e=>({...e,question_count:e.questions.length,used_attempts:db.attempts.filter(a=>a.user_id===user.id&&a.exam_id===e.id).length})))},
 async saveExam(data){if(!LOCAL_DATA){const {questions,...meta}=data;const e=await request('/admin/exams'+(data.id?'/'+data.id:''),data.id?'PATCH':'POST',meta);return request(`/admin/exams/${data.id||e.id}/questions`,'PUT',{questions})}admin();const old=db.exams.find(e=>e.id===data.id);if(old&&old.status!=='draft')fail('Chỉ chỉnh sửa được đề nháp.');if(new Set(data.questions.map(q=>q.question_id)).size!==data.questions.length)fail('Câu hỏi bị trùng.');old?Object.assign(old,data):db.exams.push({...data,id:uid(),status:'draft'});save()},
 async examStatus(id,status){if(!LOCAL_DATA)return request(`/admin/exams/${id}/${status==='published'?'publish':'archive'}`,'POST');admin();const e=db.exams.find(e=>e.id===id);if(status==='published'&&(e.status!=='draft'||!e.questions.length||e.questions.some(x=>!db.questions.find(q=>q.id===x.question_id&&q.is_active))))fail('Đề cần ít nhất một câu hợp lệ và phải ở trạng thái nháp.');e.status=status;save()},

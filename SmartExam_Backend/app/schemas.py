@@ -1,5 +1,6 @@
 from typing import Literal
 from unicodedata import normalize
+from uuid import uuid4
 
 from pydantic import (
     AliasChoices,
@@ -8,7 +9,9 @@ from pydantic import (
     EmailStr,
     Field,
     SecretStr,
+    StrictBool,
     field_validator,
+    model_validator,
 )
 
 
@@ -85,3 +88,73 @@ class SubjectResponse(BaseModel):
     name: str
     slug: str
     is_active: bool
+
+
+Difficulty = Literal["easy", "medium", "hard"]
+
+
+class QuestionOptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=1000)
+    is_correct: StrictBool = False
+
+
+class QuestionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    subject_id: str = Field(min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=2000)
+    explanation: str = Field(default="", max_length=5000)
+    difficulty: Difficulty
+    is_active: StrictBool = True
+    options: list[QuestionOptionWrite] = Field(min_length=2, max_length=6)
+
+    @field_validator("options")
+    @classmethod
+    def validate_options(cls, options: list[QuestionOptionWrite]) -> list[QuestionOptionWrite]:
+        if sum(option.is_correct for option in options) != 1:
+            raise ValueError("Câu hỏi phải có đúng một đáp án đúng.")
+        if len({option.id for option in options}) != len(options):
+            raise ValueError("Mã phương án không được trùng trong cùng câu hỏi.")
+        return options
+
+
+class QuestionPatch(QuestionWrite):
+    subject_id: str | None = Field(default=None, min_length=1, max_length=36)
+    text: str | None = Field(default=None, min_length=1, max_length=2000)
+    explanation: str | None = Field(default=None, max_length=5000)
+    difficulty: Difficulty | None = None
+    is_active: StrictBool | None = None
+    options: list[QuestionOptionWrite] | None = Field(default=None, min_length=2, max_length=6)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_empty_or_null_fields(cls, value: object) -> object:
+        if isinstance(value, dict):
+            if not value:
+                raise ValueError("Cần cung cấp ít nhất một trường để cập nhật.")
+            if any(field is None for field in value.values()):
+                raise ValueError("Trường cập nhật không được là null.")
+        return value
+
+
+class QuestionOptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    text: str
+    is_correct: bool
+
+
+class QuestionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    subject_id: str
+    text: str
+    explanation: str
+    difficulty: Difficulty
+    is_active: bool
+    options: list[QuestionOptionResponse]

@@ -74,6 +74,32 @@ Client gửi trường ngoài hợp đồng, kể cả `role`, bị từ chối 
 Lỗi validation trả `{detail:[{loc,msg,type}]}` và không chứa dữ liệu đầu vào hay mật khẩu.
 Các endpoint khác trong bảng là hợp đồng cho những user story tiếp theo.
 
-Adapter gửi Authorization: Bearer ở mọi request khi có JWT. Với PATCH hiện tại có thể gửi cả `id`; Backend có thể bỏ qua hoặc loại bỏ tại api.js nếu schema forbid_extra. Tạo/sửa metadata đề và gán câu là hai request: BE cần cho phép retry PUT an toàn, frontend hiển thị lỗi nếu một bước thất bại. Nên gộp transaction ở BE hoặc trả mã đề đã tạo trong lỗi để tránh tạo lại đề khi retry sau lỗi mạng.
+Adapter gửi Authorization: Bearer ở mọi request khi có JWT. Adapter môn học và câu hỏi
+loại `id` khỏi body PATCH; ID chỉ nằm trong URL. Tạo/sửa metadata đề và gán câu là hai request: BE cần cho phép retry PUT an toàn, frontend hiển thị lỗi nếu một bước thất bại. Nên gộp transaction ở BE hoặc trả mã đề đã tạo trong lỗi để tránh tạo lại đề khi retry sau lỗi mạng.
+
+### US-06 đã triển khai — T05F917
+
+- `GET /admin/questions`: trả `Question[]` với phương án và đáp án đúng, gồm cả câu đã ẩn.
+  Có thể kết hợp bộ lọc `subject_id`, `difficulty` và `is_active` qua query string.
+- `POST /admin/questions`: body `{subject_id,text,options,explanation?,difficulty,is_active?}`;
+  trả 201 với Question đã lưu. `is_active` mặc định `true`, `explanation` mặc định chuỗi rỗng.
+- `PATCH /admin/questions/{id}`: cập nhật một hoặc nhiều trường trong body tạo;
+  trả 200 với toàn bộ Question. Nếu gửi `options` thì thay toàn bộ danh sách, không merge từng phần tử.
+  Chỉ ẩn/mở: gửi `{"is_active":false}` hoặc `{"is_active":true}`.
+- `Option` khi ghi: `{id?,text,is_correct?}`. Nếu không có ID, server sinh UUID;
+  khi sửa nên giữ ID cũ. ID phải khác nhau trong cùng câu (1–36 ký tự), thứ tự mảng được lưu.
+  `is_correct` mặc định false; toàn bộ danh sách phải có 2–6 phần tử và đúng một true.
+- Nội dung câu hỏi 1–2000 ký tự, phương án 1–1000, lời giải tối đa 5000;
+  chuỗi được trim và nội dung bắt buộc không được rỗng. Độ khó: `easy|medium|hard`.
+  `is_active` và `is_correct` phải là boolean JSON, không phải chuỗi.
+- JWT thiếu/sai/hết hạn trả 401; tài khoản không phải admin trả 403;
+  môn học/câu hỏi không tồn tại trả 404; dữ liệu sai/trường lạ/null/PATCH rỗng trả 422
+  dạng `{detail:[{loc,msg,type}]}`. Adapter dịch lỗi validation thành thông báo tiếng Việt.
+- Mọi thay đổi câu hỏi và phương án được lưu trong một transaction. Không có DELETE;
+  ẩn câu hỏi giữ nguyên dữ liệu và mã phương án.
+
+Trang quản lý câu hỏi/môn học trong chế độ `api` chỉ tải các API nội dung, không gọi
+`/admin/exams`. Backend hiện chưa triển khai các API đề thi nên quy tắc khóa sửa
+câu đã xuất bản chưa thuộc phần US-06. Demo vẫn giữ quy tắc khóa có sẵn trên dữ liệu mô phỏng.
 
 Luồng hết giờ: FE gọi submit khi countdown hết; server phải quyết định expired bằng giờ server và tự chốt cả khi client không còn mở. Chưa có endpoint thời gian server nên đồng hồ FE dựa vào đồng hồ máy khách; BE phải luôn xác thực deadline. Muốn đồng bộ chính xác hơn, trả thêm server_now và tính offset ở adapter.

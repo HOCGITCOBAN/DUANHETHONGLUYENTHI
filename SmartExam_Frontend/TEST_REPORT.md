@@ -37,3 +37,36 @@
 Kiểm tra sử dụng CSDL/tài khoản tạm riêng; không đưa tệp CSDL hoặc thông tin đăng nhập thật vào repo.
 Luồng đăng nhập/JWT của Backend chưa thuộc US-01. Các kiểm tra trình duyệt ở trên dùng Chromium,
 không thay cho kiểm thử trên thiết bị thật hoặc Edge.
+
+## Cập nhật US-06 / T05F917
+
+Kiểm tra ngày 11/11/2026 trên nhánh `feature/t05f917-question-crud`, dựa trên main `015e6d7`.
+
+- Backend: 41 kiểm thử câu hỏi và 2 kiểm thử migration đạt trong lượt chạy toàn bộ suite.
+  Bao gồm quyền 401/403, không tin role từ JWT, tạo 2/6 phương án, tự sinh/giữ ID,
+  thứ tự phương án, sửa/thay/xóa phương án, ẩn/mở không xóa dữ liệu, bộ lọc kết hợp,
+  dữ liệu rỗng/quá dài/null/trùng ID, số đáp án đúng và boolean sai kiểu.
+- Đã giả lập lỗi CSDL khi thay phương án: cả nội dung câu hỏi lẫn các phương án cũ
+  được hoàn tác. Khóa ngoại SQLite được bật và kiểm thử.
+- Migration `0003`: upgrade/check/downgrade/upgrade đạt; nâng từ `0002` với tài khoản
+  và môn học đã có giữ nguyên dữ liệu. CSDL phát triển đã nâng tới `0003 (head)`;
+  `alembic check` không phát hiện chênh lệch metadata.
+- Toàn bộ backend: **100 passed, 1 failed**. Lỗi duy nhất có sẵn trên main là
+  `test_password_length_boundaries_are_accepted[128]`: kiểm thử yêu cầu 128 ký tự
+  nhưng đăng ký hiện giới hạn 72 byte UTF-8 theo bcrypt. Không thay đổi xác thực trong US-06.
+- Frontend: `node tests/questions.mjs` đạt **7 kiểm thử**; `registration.mjs` đạt 7;
+  `domain.mjs` vẫn PASS. `node --check dist/app.js` và `node --check dist/api.js` đạt.
+- Chromium với FastAPI/SQLite thật: đăng nhập admin vào thẳng Ngân hàng câu hỏi;
+  tạo/sửa môn học; tạo/sửa/ẩn câu hỏi; giữ ID phương án; giới hạn thêm/xóa 2–6;
+  bỏ đáp án đúng chặn gửi; chọn đáp án mới; lọc độ khó; reload giữ nội dung và trạng thái.
+  Trang môn học/câu hỏi không gọi API đề thi chưa triển khai.
+- Đã gửi danh sách không có đáp án đúng tới API qua trình duyệt: server trả 422,
+  form hiển thị hướng dẫn tiếng Việt và cho phép thử lại. Không có lỗi JavaScript.
+  Form được kiểm tra ở 390px không tràn ngang; danh sách được xem ở desktop 1440px.
+- Ruff đạt cho model, schema, database, module câu hỏi, migration và kiểm thử liên quan.
+  Ruff toàn repo còn **6 lỗi lint và 3 file cần format** có sẵn trên main
+  (`admin.py`, `routes.py`, `test_registration.py`, `test_subjects.py`).
+
+Các kiểm tra trình duyệt dùng CSDL và tài khoản admin tạm riêng, được dọn sau khi chạy.
+Không thêm tài khoản mặc định, mật khẩu hoặc CSDL vào Git. API đề thi/xuất bản và quy tắc
+khóa câu đã xuất bản ở backend chưa thuộc US-06; demo giữ quy tắc khóa có sẵn.
