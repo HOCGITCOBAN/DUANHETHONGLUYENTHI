@@ -16,6 +16,16 @@ Lỗi API được hiển thị trong form để sửa và gửi lại.
 mô phỏng trên trình duyệt. Dùng frontend cùng origin từ FastAPI để lưu câu hỏi thật.
 Kiểm thử adapter: `node tests/questions.mjs`.
 
+Các trang tải dữ liệu độc lập: hồ sơ dùng tài khoản đã đăng nhập, danh mục môn học
+chỉ gọi danh mục; thiếu API đề thi/lịch sử không chặn các trang đó hoặc ngân hàng
+câu hỏi. Tổng quan hiển thị các chức năng đang có; đề thi/lịch sử/thống kê thông báo
+chưa sẵn sàng khi backend trả 404 cho collection tương ứng. Lỗi mạng, 401/403/5xx
+vẫn được xử lý như lỗi, không chuyển sang dữ liệu demo. Kiểm thử: `node tests/page-data.mjs`.
+
+Tài khoản có họ tên `admin` nhưng vai trò `student` vẫn là sinh viên. Chủ CSDL phát triển
+có thể chạy `python -m app.manage_admin` trong backend hoặc mở `CAP_QUYEN_ADMIN.bat`,
+nhập email đã đăng ký rồi đăng xuất/đăng nhập lại để vào Ngân hàng câu hỏi.
+
 Toàn bộ FE1 + FE2 theo Product Backlog SmartExam: giao diện Sinh viên và Admin.
 HTML, CSS, JavaScript ES modules thuần; không cần npm install, không dùng dịch vụ trả phí.
 

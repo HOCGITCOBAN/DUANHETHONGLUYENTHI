@@ -58,6 +58,32 @@ Các API đề thi/xuất bản và quy tắc khóa sửa câu đã xuất bản
 chưa có bảng đề thi ở backend hiện tại. `api-demo` của frontend vẫn dùng ngân hàng
 câu hỏi mô phỏng; dùng frontend do FastAPI phục vụ để kiểm tra dữ liệu thật.
 
+## Chạy trên Windows và cấp quyền admin cục bộ
+
+Đăng ký công khai luôn tạo tài khoản `student`, kể cả khi đặt họ tên là `admin`.
+Tên hiển thị không quyết định quyền. Để kiểm tra US-06, chủ CSDL phát triển có thể
+cấp quyền cho đúng email đã đăng ký bằng terminal tại thư mục backend:
+
+```powershell
+cd "$env:USERPROFILE\Downloads\DUANHETHONGLUYENTHI\SmartExam_Backend"
+.\.venv\Scripts\python.exe -m app.manage_admin
+```
+
+Nhập email của tài khoản khi được hỏi, rồi đăng xuất/đăng nhập lại. Có thể truyền
+email làm đối số: `python -m app.manage_admin owner@example.com` khi đã kích hoạt venv.
+Lệnh dùng cùng `DATABASE_URL` với backend (mặc định `smartexam.db` trong thư mục chạy),
+chỉ đổi role của tài khoản được tìm thấy, không tạo tài khoản hay đổi mật khẩu.
+Email không hợp lệ/không tồn tại hoặc CSDL chưa migration sẽ báo lỗi và không cấp quyền.
+Không có endpoint HTTP cho lệnh quản trị CSDL này.
+
+Trên Windows có thể mở `CAP_QUYEN_ADMIN.bat` để thực hiện cùng thao tác.
+`CHAY_BACKEND.bat` dùng trực tiếp `.venv\Scripts\python.exe`, nên không cần `python`
+hoặc `py` trên PATH khi venv đã được tạo và cài đủ `requirements.txt`.
+
+Nếu các trang cũ báo `Not Found`, cập nhật repo, khởi động lại backend và tải lại
+trình duyệt bằng Ctrl+F5. Môn học/hồ sơ tải độc lập; các trang đề thi, lịch sử và
+thống kê thông báo chưa sẵn sàng khi backend chưa cung cấp các chức năng tương ứng.
+
 ## Login and JWT
 
 `POST /auth/login` accepts `{ "email": "student@example.com", "password": "..." }` and

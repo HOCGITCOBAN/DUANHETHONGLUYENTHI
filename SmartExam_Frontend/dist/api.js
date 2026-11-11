@@ -74,7 +74,9 @@ async function request(path,method='GET',body){
     const data=res.status===204?null:await res.json().catch(()=>null);
     if(!res.ok){
       if(res.status===401){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
-      throw Error(apiErrorMessage(path,res.status,data));
+      const error=Error(apiErrorMessage(path,res.status,data));
+      error.status=res.status;
+      throw error;
     }
     return data;
   }catch(error){

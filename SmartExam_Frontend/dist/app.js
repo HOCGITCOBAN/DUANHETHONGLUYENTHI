@@ -1,4 +1,5 @@
 import {api,DEMO,LOCAL_DATA,uid} from './api.js';
+import {loadPageData} from './page-data.js';
 const $=s=>document.querySelector(s),root=$('#app'),modal=$('#modal');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const diff={easy:'Cơ bản',medium:'Trung bình',hard:'Nâng cao'},status={draft:'Bản nháp',published:'Đã xuất bản',archived:'Đã ẩn',in_progress:'Đang làm',submitted:'Đã nộp',expired:'Hết giờ'};
@@ -91,7 +92,48 @@ function drawAttempt(){const a=current,exam=a.snapshot,q=exam.questions[qindex],
 function tick(){if(!current||!$('#timer'))return;const ms=Number.isFinite(Number(current.deadline_at))?Number(current.deadline_at):Date.parse(current.deadline_at),seconds=Math.max(0,Math.ceil((ms-Date.now())/1000));$('#timer').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;$('#timer').classList.toggle('low',seconds<60);if(seconds===0&&!busy)submit(true).catch(e=>toast(e.message))}
 async function submit(expired){if(busy)return;busy=true;try{await saveQueue;if(failedSaves.size&&!expired)throw Error('Còn đáp án chưa lưu. Vui lòng chọn lại đáp án bị lỗi trước khi nộp.');await api.submit(current.id);clearInterval(timer);modal.close();failedSaves.clear();go('/result/'+current.id);toast(expired?'Đã hết giờ. Hệ thống chốt các đáp án đã lưu.':'Nộp bài thành công.')}finally{busy=false}}
 async function resultPage(id){const a=await api.result(id),e=a.snapshot;shell(head('Kết quả bài thi',esc(e.title),'<a class="btn secondary" href="#/history">← Lịch sử làm bài</a>')+`<div class="panel result">${pill(a.passed?'HOÀN THÀNH · ĐẠT':'HOÀN THÀNH · CHƯA ĐẠT',a.passed?'good':'warn')}<h2 style="font-size:25px;margin-bottom:6px">${a.passed?'Làm tốt lắm, tiếp tục phát huy!':'Mỗi lần luyện tập là một cơ hội.'}</h2><p class="sub">${a.passed?'Bạn đã vượt qua mức điểm yêu cầu của bài thi.':'Xem lại lời giải và thử sức lần nữa khi sẵn sàng.'}</p><div class="score">${fmt(a.score)}<small>TRÊN 100 ĐIỂM</small></div><div class="row" style="justify-content:center;gap:32px"><p class="sub">Số câu đúng<br><b style="color:var(--ink)">${a.correct_count}/${e.questions.length}</b></p><p class="sub">Điểm yêu cầu<br><b style="color:var(--ink)">${e.pass_score}/100</b></p><p class="sub">Trạng thái<br><b style="color:var(--ink)">${status[a.status]}</b></p></div><div class="row" style="justify-content:center;margin-top:20px"><a href="#/exams" class="btn">Luyện tập tiếp ↗</a><button class="btn secondary" id="review-toggle">Xem đáp án & lời giải</button></div></div><section id="review" hidden><div class="sectiontitle"><h2>Xem lại bài làm</h2></div><div class="panel">${e.questions.map((q,i)=>`<article class="reviewitem"><b>Câu ${i+1}. ${esc(q.text)}</b><p class="sub">${q.points} điểm trọng số · ${a.answers[q.id]?'Đã trả lời':'Chưa trả lời'}</p>${q.options.map(o=>`<div class="reviewanswer ${o.is_correct?'correct':a.answers[q.id]===o.id?'wrong':''}">${o.is_correct?'✓ ':a.answers[q.id]===o.id?'× ':''}${esc(o.text)} ${a.answers[q.id]===o.id?'<b> · Bạn chọn</b>':''}</div>`).join('')}<p class="sub"><b>Giải thích:</b> ${esc(q.explanation||'Chưa có lời giải.')}</p></article>`).join('')}</div></section>`);$('#review-toggle').onclick=()=>{$('#review').hidden=!$('#review').hidden;if(!$('#review').hidden)$('#review').scrollIntoView({behavior:'smooth'})}}
-function studentSubjectPage(){shell(head('Danh m\u1ee5c m\u00f4n h\u1ecdc','C\u00e1c m\u00f4n h\u1ecdc \u0111ang m\u1edf \u0111\u1ec3 b\u1ea1n theo d\u00f5i n\u1ed9i dung v\u00e0 t\u00ecm \u0111\u1ec1 thi ph\u00f9 h\u1ee3p.','','KH\u00d4NG GIAN H\u1eccC T\u1eacP')+`<div class="grid">${subjects.map(s=>`<article class="card"><div class="cardtop"><span class="subject-icon">${esc(s.name.slice(0,2))}</span>${pill('\u0110ang m\u1edf','good')}</div><div class="cardbody"><span class="eyebrow">M\u00d4N H\u1eccC</span><h3>${esc(s.name)}</h3><p>M\u00f4n h\u1ecdc hi\u1ec7n \u0111ang m\u1edf cho sinh vi\u00ean.</p><div class="cardfoot"><span>${exams.filter(e=>e.subject_id===s.id).length} \u0111\u1ec1 thi kh\u1ea3 d\u1ee5ng</span><a class="btn small" href="#/exams">Xem \u0111\u1ec1 thi \u2197</a></div></div></article>`).join('')||empty('Ch\u01b0a c\u00f3 m\u00f4n h\u1ecdc \u0111ang m\u1edf','Admin s\u1ebd c\u1eadp nh\u1eadt danh m\u1ee5c s\u1edbm.')}</div>`)}
+function studentSubjectPage(){
+  shell(head('Danh mục môn học','Các môn học đang mở cho sinh viên.','','KHÔNG GIAN HỌC TẬP')+`
+    <div class="grid">${subjects.map(s=>`
+      <article class="card">
+        <div class="cardtop"><span class="subject-icon">${esc(s.name.slice(0,2))}</span>${pill('Đang mở','good')}</div>
+        <div class="cardbody">
+          <span class="eyebrow">MÔN HỌC</span><h3>${esc(s.name)}</h3>
+          <p>Môn học hiện đang mở cho sinh viên.</p>
+          <div class="cardfoot">
+            <span>${LOCAL_DATA?`${exams.filter(e=>e.subject_id===s.id).length} đề thi khả dụng`:'Đang mở cho sinh viên'}</span>
+            <a class="btn small" href="#/exams">Xem đề thi ↗</a>
+          </div>
+        </div>
+      </article>`).join('')||empty('Chưa có môn học đang mở','Admin sẽ cập nhật danh mục sớm.')}
+    </div>`);
+}
+function pendingFeaturePage(path){
+  const titles={'/exams':'Khám phá đề thi','/history':'Lịch sử làm bài','/admin/exams':'Quản lý đề thi','/admin/stats':'Thống kê'};
+  const admin=user.role==='admin';
+  shell(head(titles[path]||'Tính năng đang được hoàn thiện','Chức năng này chưa sẵn sàng trong phiên bản hiện tại.')+`
+    <div class="panel">
+      <p class="sub">Bạn vẫn có thể ${admin?'quản lý môn học và ngân hàng câu hỏi.':'xem danh mục môn học và thông tin tài khoản.'}</p>
+      <div class="row" style="margin-top:20px">
+        <a class="btn" href="#/${admin?'admin/questions':'subjects'}">${admin?'Ngân hàng câu hỏi':'Danh mục môn học'}</a>
+        ${admin?'':'<a class="btn secondary" href="#/profile">Tài khoản</a>'}
+      </div>
+    </div>`);
+}
+function partialDashboard(unavailable){
+  const admin=user.role==='admin';
+  const missing=unavailable.map(key=>key==='exams'?'Đề thi':'Lịch sử làm bài').sort().join(' và ');
+  shell(head('Tổng quan',`Chào ${esc(user.name)}, chọn chức năng để tiếp tục.`,'',admin?'QUẢN TRỊ':'KHÔNG GIAN HỌC TẬP')+
+    metrics(admin?[['Môn học',subjects.length],['Ngân hàng câu hỏi',questions.length,'câu']]:[['Môn học đang mở',subjects.length]])+`
+    <div class="panel">
+      <h2 style="margin-top:0">${admin?'Quản lý nội dung':'Không gian học tập'}</h2>
+      <p class="sub">${esc(missing)} chưa sẵn sàng trong phiên bản này.</p>
+      <div class="row" style="margin-top:20px">
+        <a class="btn" href="#/${admin?'admin/questions':'subjects'}">${admin?'Ngân hàng câu hỏi':'Danh mục môn học'}</a>
+        <a class="btn secondary" href="#/${admin?'admin/subjects':'profile'}">${admin?'Quản lý môn học':'Tài khoản'}</a>
+      </div>
+    </div>`);
+}
 function subjectPage(){shell(head('Quản lý môn học','Xây dựng danh mục kiến thức cho hệ thống.','<button class="btn" id="add-subject">+ Thêm môn học</button>','QUẢN TRỊ')+`<div class="tablewrap"><table><thead><tr><th>MÔN HỌC</th><th>SLUG</th><th>CÂU HỎI</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>${subjects.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.slug)}</td><td>${questions.filter(q=>q.subject_id===s.id).length}</td><td>${pill(s.is_active?'Đang mở':'Đã ẩn',s.is_active?'good':'warn')}</td><td><button class="textbtn edit-subject" data-id="${s.id}">Chỉnh sửa ↗</button></td></tr>`).join('')}</tbody></table></div>`);$('#add-subject').onclick=()=>subjectForm();document.querySelectorAll('.edit-subject').forEach(b=>b.onclick=()=>subjectForm(subjects.find(s=>s.id===b.dataset.id)))}
 function subjectForm(s={}){dialog(s.id?'Chỉnh sửa môn học':'Thêm môn học',`<form id="subject-form" class="form"><label>Tên môn học<input name="name" value="${esc(s.name)}" required maxlength="100"></label><label>Slug<input name="slug" value="${esc(s.slug)}" pattern="[a-z0-9]+(-[a-z0-9]+)*" required placeholder="vi-du-mon-hoc"></label><label class="checkline"><input type="checkbox" name="active" ${s.is_active!==false?'checked':''}>Mở cho sinh viên</label><button class="btn" type="submit">Lưu môn học</button></form>`);const f=$('#subject-form');f.elements.name.oninput=()=>{if(!s.id)f.elements.slug.value=f.elements.name.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')};onForm('#subject-form',async d=>{await api.saveSubject({...(s.id?{id:s.id}:{}),name:d.get('name').trim(),slug:d.get('slug'),is_active:d.has('active')});modal.close();toast('Đã lưu môn học');render()})}
 function questionTable(list){return list.length?`<div class="tablewrap"><table><thead><tr><th>CÂU HỎI</th><th>MÔN HỌC</th><th>ĐỘ KHÓ</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>${list.map(q=>`<tr><td style="max-width:430px"><b>${esc(q.text)}</b><br><span class="muted">${q.options.length} phương án</span></td><td>${esc(subject(q.subject_id))}</td><td>${diff[q.difficulty]}</td><td>${pill(q.is_active?'Đang dùng':'Đã ẩn',q.is_active?'good':'warn')}</td><td><button class="textbtn edit-question" data-id="${q.id}">Xem / sửa ↗</button></td></tr>`).join('')}</tbody></table></div>`:empty('Không có câu hỏi phù hợp','Thêm câu hỏi hoặc thay đổi bộ lọc.')}
@@ -152,18 +194,45 @@ function adminExams(){shell(head('Quản lý đề thi','Tạo bài kiểm tra p
 function bindExamActions(){document.querySelectorAll('.edit-exam').forEach(b=>b.onclick=()=>examForm(exams.find(e=>e.id===b.dataset.id)));for(const [cls,st]of [['publish-exam','published'],['archive-exam','archived']])document.querySelectorAll('.'+cls).forEach(b=>b.onclick=()=>{dialog(st==='published'?'Xuất bản đề thi?':'Ẩn đề thi?',`<p class="sub">${st==='published'?'Sinh viên có thể bắt đầu làm bài. Cấu trúc đề và câu hỏi sẽ bị khóa sửa.':'Đề sẽ không xuất hiện trong danh sách để bắt đầu lượt mới. Lịch sử bài làm vẫn được giữ.'}</p><div class="row" style="margin-top:20px"><button class="btn" id="confirm-status">Xác nhận</button></div>`);$('#confirm-status').onclick=e=>action(e.target,async()=>{await api.examStatus(b.dataset.id,st);modal.close();toast('Đã cập nhật trạng thái đề');render()})})}
 function examForm(e={}){if(!subjects.length){toast('Hãy tạo môn học và câu hỏi trước.');return}let selected=(e.questions||[]).map(q=>({...q}));dialog(e.id?'Chỉnh sửa đề nháp':'Tạo đề thi nháp',`<form id="exam-form" class="form"><label>Tên đề thi<input name="title" required maxlength="150" value="${esc(e.title)}"></label><label>Mô tả<textarea name="description">${esc(e.description)}</textarea></label><div class="formrow"><label>Môn học<select name="subject_id" id="exam-subject">${subjectOptions(e.subject_id)}</select></label><label>Độ khó<select name="difficulty">${Object.entries(diff).map(([k,v])=>`<option value="${k}" ${k===(e.difficulty||'medium')?'selected':''}>${v}</option>`).join('')}</select></label></div><div class="formrow"><label>Thời lượng (phút)<input type="number" name="duration_minutes" min="1" max="300" required value="${e.duration_minutes||30}"></label><label>Điểm đạt / 100<input type="number" name="pass_score" min="0" max="100" required value="${e.pass_score??70}"></label></div><label>Số lượt thi tối đa<input type="number" name="max_attempts" min="1" max="100" required value="${e.max_attempts||3}"></label><div><b style="font-size:13px">Chọn câu hỏi và trọng số</b><p class="sub" style="font-size:12px">Thứ tự chọn là thứ tự trong đề. Dùng ↑ ↓ để sắp xếp.</p><div id="chosen"></div><input type="search" id="builder-search" placeholder="Tìm câu hỏi..." aria-label="Tìm câu hỏi cho đề" style="width:100%;margin-top:10px"><div id="builder"></div></div><button type="submit" class="btn">Lưu bản nháp</button></form>`);const sub=$('#exam-subject');function draw(){const search=$('#builder-search').value.toLowerCase();$('#builder').innerHTML=questions.filter(q=>q.subject_id===sub.value&&q.is_active&&!selected.some(s=>s.question_id===q.id)&&q.text.toLowerCase().includes(search)).map(q=>`<label class="builderitem"><input type="checkbox" data-add="${q.id}"><span>${esc(q.text)}</span></label>`).join('')||'<p class="sub">Không có câu hỏi chưa chọn phù hợp.</p>';$('#chosen').innerHTML=selected.map((x,i)=>`<div class="builderitem"><span><b>${i+1}.</b> ${esc(questions.find(q=>q.id===x.question_id)?.text)}</span><input type="number" min="0.1" max="100" step="0.1" required value="${x.points}" data-points="${i}" aria-label="Trọng số câu ${i+1}"><button type="button" class="textbtn" data-up="${i}" ${i===0?'disabled':''} aria-label="Đưa câu ${i+1} lên">↑</button><button type="button" class="textbtn" data-down="${i}" ${i===selected.length-1?'disabled':''} aria-label="Đưa câu ${i+1} xuống">↓</button><button type="button" class="textbtn" data-remove="${i}" aria-label="Bỏ câu ${i+1}">×</button></div>`).join('');modal.querySelectorAll('[data-add]').forEach(b=>b.onchange=()=>{selected.push({question_id:b.dataset.add,points:1});draw()});modal.querySelectorAll('[data-points]').forEach(b=>b.oninput=()=>selected[+b.dataset.points].points=+b.value);modal.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{selected.splice(+b.dataset.remove,1);draw()});for(const [attr,offset] of [['up',-1],['down',1]])modal.querySelectorAll('[data-'+attr+']').forEach(b=>b.onclick=()=>{const i=+b.dataset[attr];[selected[i],selected[i+offset]]=[selected[i+offset],selected[i]];draw()})}sub.onchange=()=>{selected=[];draw()};$('#builder-search').oninput=draw;draw();onForm('#exam-form',async d=>{if(selected.some(q=>!Number.isFinite(q.points)||q.points<=0))throw Error('Trọng số điểm phải lớn hơn 0.');await api.saveExam({...(e.id?{id:e.id}:{}),title:d.get('title').trim(),description:d.get('description'),subject_id:d.get('subject_id'),difficulty:d.get('difficulty'),duration_minutes:+d.get('duration_minutes'),pass_score:+d.get('pass_score'),max_attempts:+d.get('max_attempts'),questions:selected});modal.close();toast('Đã lưu đề nháp');render()})}
 async function statsPage(){const rows=await Promise.all(exams.map(async e=>({e,s:await api.stats(e.id)})));const completed=rows.reduce((n,x)=>n+x.s.completed,0),total=rows.reduce((n,x)=>n+x.s.total_attempts,0);shell(head('Thống kê kết quả','Theo dõi hoạt động thi và chất lượng học tập.','','QUẢN TRỊ')+metrics([['Tổng lượt thi',total,'lượt'],['Đã hoàn thành',completed,'lượt'],['Điểm trung bình',completed?fmt(rows.reduce((n,x)=>n+(x.s.average_score||0)*x.s.completed,0)/completed):'—','/ 100'],['Tỷ lệ đạt',completed?fmt(rows.reduce((n,x)=>n+(x.s.pass_rate||0)*x.s.completed,0)/completed):'—','%']])+`<div class="panel"><div class="sectiontitle" style="margin-top:0"><h2>Điểm trung bình theo đề</h2></div>${rows.length?rows.map(({e,s})=>`<div class="chartrow"><span>${esc(e.title)}</span><div class="bar"><i style="width:${s.average_score||0}%"></i></div><b>${fmt(s.average_score)}</b></div>`).join(''):empty('Chưa có đề thi','Tạo đề thi để theo dõi kết quả.')}</div><div class="sectiontitle"><h2>Chi tiết theo đề thi</h2></div><div class="tablewrap"><table><thead><tr><th>ĐỀ THI</th><th>LƯỢT THI</th><th>HOÀN THÀNH</th><th>ĐIỂM TRUNG BÌNH</th><th>TỶ LỆ ĐẠT</th></tr></thead><tbody>${rows.map(({e,s})=>`<tr><td><b>${esc(e.title)}</b></td><td>${s.total_attempts}</td><td>${s.completed}</td><td>${fmt(s.average_score)}</td><td>${fmt(s.pass_rate)}${s.pass_rate!==null?'%':''}</td></tr>`).join('')}</tbody></table></div><p class="sub" style="margin-top:15px;font-size:12px">Điểm trung bình và tỷ lệ đạt tính trên các lượt đã nộp hoặc hết giờ. Dấu — nghĩa là chưa có lượt hoàn thành.</p>`)}
-async function render(){const rid=++renderId;clearInterval(timer);if(modal.open)modal.close();const path=route();if(!user){auth(path==='/register');return}if(['/login','/register'].includes(path)){go(homeRoute());return}if(path.startsWith('/admin')&&user.role!=='admin'){shell(head('Không có quyền truy cập','Trang này chỉ dành cho quản trị viên.')+'<a class="btn" href="#/dashboard">Về tổng quan</a>');return}try{root.innerHTML='<div class="loading">Đang tải không gian của bạn...</div>';const admin=user.role==='admin';
-// Content management must work independently of the exam APIs in later stories.
-const contentOnly=!LOCAL_DATA&&admin&&['/admin/questions','/admin/subjects'].includes(path);
-const data=await Promise.all([
-  api.subjects(admin),
-  contentOnly?Promise.resolve([]):api.exams(admin),
-  admin?api.questions():Promise.resolve([]),
-  admin?Promise.resolve([]):api.history(),
-]);
-if(rid!==renderId)return;
-[subjects,exams,questions,history]=data;
-if(path==='/dashboard')await dashboard();else if(path==='/subjects'&&!admin)studentSubjectPage();else if(path==='/exams'&&!admin)examList();else if(path==='/history'&&!admin)historyPage();else if(path==='/profile')profile();else if(path.startsWith('/attempt/')&&!admin)await attemptPage(path.split('/')[2]);else if(path.startsWith('/result/')&&!admin)await resultPage(path.split('/')[2]);else if(path==='/admin/subjects')subjectPage();else if(path==='/admin/questions')questionPage();else if(path==='/admin/exams')adminExams();else if(path==='/admin/stats')await statsPage();else shell(head('Không tìm thấy trang','Đường dẫn không hợp lệ.')+'<a class="btn" href="#/dashboard">Về tổng quan</a>')}catch(e){if(user)shell(head('Không thể tải dữ liệu',esc(e.message))+'<button class="btn" id="retry">Thử lại</button>');else auth();if($('#retry'))$('#retry').onclick=render;toast(e.message)}}
+async function render(){
+  const rid=++renderId;
+  clearInterval(timer);
+  if(modal.open)modal.close();
+  const path=route();
+  if(!user){auth(path==='/register');return}
+  if(['/login','/register'].includes(path)){go(homeRoute());return}
+  if(path.startsWith('/admin')&&user.role!=='admin'){
+    shell(head('Không có quyền truy cập','Trang này chỉ dành cho quản trị viên.')+'<a class="btn" href="#/dashboard">Về tổng quan</a>');
+    return;
+  }
+  try{
+    root.innerHTML='<div class="loading">Đang tải không gian của bạn...</div>';
+    const admin=user.role==='admin';
+    const data=await loadPageData(api,path,admin,LOCAL_DATA);
+    if(rid!==renderId)return;
+    ({subjects,exams,questions,history}=data);
+    if(path==='/dashboard'&&data.unavailable.length){partialDashboard(data.unavailable);return}
+    if(data.unavailable.length){pendingFeaturePage(path);return}
+    if(path==='/dashboard')await dashboard();
+    else if(path==='/subjects'&&!admin)studentSubjectPage();
+    else if(path==='/exams'&&!admin)examList();
+    else if(path==='/history'&&!admin)historyPage();
+    else if(path==='/profile')profile();
+    else if(path.startsWith('/attempt/')&&!admin)await attemptPage(path.split('/')[2]);
+    else if(path.startsWith('/result/')&&!admin)await resultPage(path.split('/')[2]);
+    else if(path==='/admin/subjects')subjectPage();
+    else if(path==='/admin/questions')questionPage();
+    else if(path==='/admin/exams')adminExams();
+    else if(path==='/admin/stats')await statsPage();
+    else shell(head('Không tìm thấy trang','Đường dẫn không hợp lệ.')+'<a class="btn" href="#/dashboard">Về tổng quan</a>');
+  }catch(e){
+    if(rid!==renderId)return;
+    if(user)shell(head('Không thể tải dữ liệu',esc(e.message))+'<button class="btn" id="retry">Thử lại</button>');
+    else auth();
+    if($('#retry'))$('#retry').onclick=render;
+    toast(e.message);
+  }
+}
 window.addEventListener('hashchange',render);window.addEventListener('session-expired',()=>{user=null;go('/login');toast('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.')});
 try{const session=JSON.parse(sessionStorage.getItem('smartexam.session'));if(session)user=await api.restore(session)}catch{sessionStorage.removeItem('smartexam.session')}
 render();

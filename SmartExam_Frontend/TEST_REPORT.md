@@ -70,3 +70,26 @@ Kiểm tra ngày 11/11/2026 trên nhánh `feature/t05f917-question-crud`, dựa 
 Các kiểm tra trình duyệt dùng CSDL và tài khoản admin tạm riêng, được dọn sau khi chạy.
 Không thêm tài khoản mặc định, mật khẩu hoặc CSDL vào Git. API đề thi/xuất bản và quy tắc
 khóa câu đã xuất bản ở backend chưa thuộc US-06; demo giữ quy tắc khóa có sẵn.
+
+## Sửa lỗi tải trang và hướng dẫn admin cục bộ — T05F917
+
+- Tái hiện nguyên nhân các ảnh lỗi trên Windows: một tài khoản tên `admin` được đăng ký
+  với role `student`; frontend gọi cả đề thi/lịch sử trước khi dựng mọi trang sinh viên,
+  nên các API chưa có gây `Not Found` cả ở hồ sơ và danh mục môn học.
+- Đã tách collection cần tải theo route. Hồ sơ không tải collection khác; danh mục môn học
+  dùng dữ liệu môn học thật. Trang đề thi/lịch sử/thống kê chưa có thông báo chưa sẵn sàng;
+  tổng quan vẫn cho truy cập các chức năng hiện có, không trình bày số liệu thi giả.
+- `node tests/page-data.mjs`: 15 kiểm thử đạt; adapter câu hỏi 8, đăng ký 7 và domain demo đạt.
+  Kiểm tra cả backend đủ dữ liệu, collection chưa có, giữ lỗi mạng/401/403/500, và danh mục demo.
+- `pytest tests/test_manage_admin.py tests/test_questions.py tests/test_migrations.py -q`:
+  **51 kiểm thử đạt**. Lệnh cấp quyền chỉ chọn đúng email, giữ nguyên mật khẩu và tài khoản
+  khác; hỗ trợ nhập tại terminal, chạy lại an toàn, xử lý email/CSDL sai và CSDL chưa migration.
+- Chromium với FastAPI/SQLite thật: đăng ký tên `admin` vẫn là student; mở năm trang sinh viên
+  không có lỗi `Not Found` toàn cục. Hồ sơ/môn học không gọi API đề thi/lịch sử. Giả lập 503
+  vẫn hiển thị lỗi và thử lại được; 401 đưa về đăng nhập; student vẫn bị chặn trang/API quản trị.
+- Chạy `app.manage_admin` qua stdin trên CSDL kiểm thử rồi đăng nhập lại: vào trang quản trị
+  và tạo câu hỏi thật thành công (201). Tổng quan admin và thông báo các chức năng thi chưa có
+  hiển thị được; không có lỗi JavaScript.
+- Thêm `CAP_QUYEN_ADMIN.bat`; launcher backend dùng Python trong `.venv` để tránh phụ thuộc PATH.
+  CLI được chạy thật trên Linux; các tệp `.bat` được kiểm tra nội dung, chưa chạy trên Windows
+  trong môi trường tự động này.

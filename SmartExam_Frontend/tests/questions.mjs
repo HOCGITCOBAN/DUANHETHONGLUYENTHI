@@ -89,6 +89,11 @@ test('missing subjects and forbidden operations preserve server business errors'
   assert.equal(storage.size, 0);
 });
 
+test('HTTP errors retain status for page-specific handling', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Not Found' }), { status: 404 });
+  await assert.rejects(api.exams(), error => error.status === 404 && error.message === 'Not Found');
+});
+
 test('subject edits exclude the id from the body for the strict backend schema', async () => {
   globalThis.fetch = async (url, request) => {
     assert.equal(url, '/admin/subjects/js');
