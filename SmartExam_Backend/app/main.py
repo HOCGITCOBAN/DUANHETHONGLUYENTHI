@@ -48,7 +48,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             if origin.strip()
         ],
         allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
-        allow_methods=["GET", "POST", "PATCH"],
+        allow_methods=["GET", "POST", "PATCH", "PUT"],
         allow_headers=["Content-Type", "Authorization"],
     )
 

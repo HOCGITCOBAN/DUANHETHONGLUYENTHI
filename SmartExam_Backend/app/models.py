@@ -1,7 +1,20 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, String, UniqueConstraint, func, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -39,3 +52,25 @@ class Subject(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )
+
+
+class Exam(Base):
+    __tablename__ = "exams"
+    __table_args__ = (
+        CheckConstraint("duration_minutes BETWEEN 1 AND 300", name="ck_exams_duration"),
+        CheckConstraint("pass_score BETWEEN 0 AND 100", name="ck_exams_pass_score"),
+        CheckConstraint("max_attempts BETWEEN 1 AND 100", name="ck_exams_max_attempts"),
+        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_exams_difficulty"),
+        CheckConstraint("status IN ('draft', 'published', 'archived')", name="ck_exams_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    subject_id: Mapped[str] = mapped_column(ForeignKey("subjects.id"), nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    pass_score: Mapped[float] = mapped_column(Float, nullable=False, default=70)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="draft")
+    questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

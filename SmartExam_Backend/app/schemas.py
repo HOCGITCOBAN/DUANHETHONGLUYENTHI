@@ -85,3 +85,43 @@ class SubjectResponse(BaseModel):
     name: str
     slug: str
     is_active: bool
+
+
+class ExamWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1, max_length=150)
+    description: str = Field(default="", max_length=5000)
+    subject_id: str = Field(min_length=1, max_length=36)
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    duration_minutes: int = Field(default=30, ge=1, le=300)
+    pass_score: float = Field(default=70, ge=0, le=100)
+    max_attempts: int = Field(default=3, ge=1, le=100)
+
+
+class ExamQuestionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str = Field(min_length=1, max_length=36)
+    points: float = Field(gt=0, le=100)
+
+
+class ExamQuestionsWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    questions: list[ExamQuestionWrite] = Field(max_length=200)
+
+
+class ExamResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    description: str
+    subject_id: str
+    difficulty: str
+    duration_minutes: int
+    pass_score: float
+    max_attempts: int
+    status: str
+    questions: list[dict]
