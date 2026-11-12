@@ -9,6 +9,7 @@ from pydantic import (
     Field,
     SecretStr,
     field_validator,
+    model_validator,
 )
 
 
@@ -84,4 +85,51 @@ class SubjectResponse(BaseModel):
     id: str
     name: str
     slug: str
+    is_active: bool
+
+
+Difficulty = Literal["easy", "medium", "hard"]
+
+
+class OptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=500)
+    is_correct: bool = False
+
+
+class OptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    text: str
+    is_correct: bool
+
+
+class QuestionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    subject_id: str = Field(min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=2000)
+    options: list[OptionWrite] = Field(min_length=2, max_length=6)
+    explanation: str | None = Field(default=None, max_length=2000)
+    difficulty: Difficulty = "medium"
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def require_exactly_one_correct_option(self) -> "QuestionWrite":
+        if sum(option.is_correct for option in self.options) != 1:
+            raise ValueError("Câu hỏi phải có đúng một phương án đúng.")
+        return self
+
+
+class QuestionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    subject_id: str
+    text: str
+    options: list[OptionResponse]
+    explanation: str | None
+    difficulty: Difficulty
     is_active: bool

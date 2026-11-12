@@ -43,6 +43,31 @@ def list_subjects(): ...
 Backend băm mật khẩu bằng Argon2id, từ chối email đã tồn tại và gán quyền `student`.
 Tài khoản được lưu bằng SQLAlchemy trong SQLite; Alembic quản lý migration bảng `users`.
 
+## Bảo vệ câu hỏi đã xuất bản (US-07)
+
+Câu hỏi và các phương án của nó được quản lý qua `/admin/questions` (chỉ admin). Phương án chỉ
+được sửa cùng câu hỏi, nên chúng chịu chung một khóa. Quy tắc dựa trên trạng thái đề thi:
+
+| Câu hỏi nằm trong | `PATCH` (sửa, kể cả đổi `is_active`) | `DELETE` |
+|---|---|---|
+| Không đề nào | Cho phép | Cho phép (204) |
+| Chỉ đề `draft` hoặc `archived` | Cho phép | **409** (hãy ẩn bằng `is_active=false`) |
+| Có ít nhất một đề `published` | **409** | **409** |
+
+- 409 trả `{"detail": "Câu hỏi đang nằm trong đề thi đã xuất bản nên không thể sửa hoặc xóa. Hãy lưu trữ đề thi trước."}`.
+  Dữ liệu câu hỏi, id câu hỏi và id phương án không bị thay đổi.
+- Muốn sửa một câu đang ở đề đã xuất bản: lưu trữ đề (`archived`) rồi sửa. Khi đề được
+  xuất bản lại, câu hỏi bị khóa trở lại.
+- Logic nằm ở `app/question_lock.py`; mọi route sửa/xóa câu hỏi hoặc phương án mới phải gọi
+  `ensure_not_in_published_exam(db, question_id)` trước khi ghi.
+- Quy tắc dữ liệu: 2 đến 6 phương án, đúng một phương án đúng, `difficulty` là `easy`,
+  `medium` hoặc `hard`, `subject_id` phải tồn tại.
+- Việc kiểm tra nằm ở tầng ứng dụng. Endpoint xuất bản đề (`publish`) sau này nên thực hiện
+  trong cùng transaction với việc kiểm tra đề, để tránh một câu hỏi bị sửa đúng lúc đề được xuất bản.
+- Migration `0003` thêm các bảng `questions`, `question_options`, `exams`, `exam_questions`.
+  Chưa có endpoint tạo đề, gán câu vào đề và xuất bản; các bảng này là nền để các user story đó
+  dùng tiếp. Test chèn đề trực tiếp vào CSDL.
+
 ## Chạy trên máy
 
 Cần Python 3.11 trở lên và đầy đủ hai thư mục `SmartExam_Backend`, `SmartExam_Frontend`
