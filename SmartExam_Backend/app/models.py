@@ -1,8 +1,23 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, String, UniqueConstraint, func, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+    func,
+    text,
+    true,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -39,3 +54,84 @@ class Subject(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )
+
+
+class Question(Base):
+    __tablename__ = "questions"
+    __table_args__ = (
+        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_questions_difficulty"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    subject_id: Mapped[str] = mapped_column(
+        ForeignKey("subjects.id", name="fk_questions_subject_id"), nullable=False
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    difficulty: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="medium", server_default="medium"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    options: Mapped[list["QuestionOption"]] = relationship(
+        back_populates="question",
+        cascade="all, delete-orphan",
+        order_by="QuestionOption.position",
+    )
+
+
+class QuestionOption(Base):
+    __tablename__ = "question_options"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("questions.id", name="fk_question_options_question_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_correct: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    question: Mapped["Question"] = relationship(back_populates="options")
+
+
+class Exam(Base):
+    __tablename__ = "exams"
+    __table_args__ = (
+        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_exams_difficulty"),
+        CheckConstraint("status IN ('draft', 'published', 'archived')", name="ck_exams_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    subject_id: Mapped[str] = mapped_column(
+        ForeignKey("subjects.id", name="fk_exams_subject_id"), nullable=False
+    )
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    pass_score: Mapped[float] = mapped_column(Float, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    difficulty: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="medium", server_default="medium"
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="draft", server_default="draft"
+    )
+
+
+class ExamQuestion(Base):
+    __tablename__ = "exam_questions"
+    __table_args__ = (Index("ix_exam_questions_question_id", "question_id"),)
+
+    exam_id: Mapped[str] = mapped_column(
+        ForeignKey("exams.id", name="fk_exam_questions_exam_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("questions.id", name="fk_exam_questions_question_id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    points: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
