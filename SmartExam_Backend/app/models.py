@@ -12,10 +12,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
     text,
+    true,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -74,3 +76,44 @@ class Exam(Base):
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="draft")
     questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+
+
+class Question(Base):
+    __tablename__ = "questions"
+    __table_args__ = (
+        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_questions_difficulty"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    subject_id: Mapped[str] = mapped_column(
+        ForeignKey("subjects.id", name="fk_questions_subject_id"), nullable=False
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    difficulty: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="medium", server_default="medium"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    options: Mapped[list["QuestionOption"]] = relationship(
+        back_populates="question",
+        cascade="all, delete-orphan",
+        order_by="QuestionOption.position",
+    )
+
+
+class QuestionOption(Base):
+    __tablename__ = "question_options"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("questions.id", name="fk_question_options_question_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_correct: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    question: Mapped["Question"] = relationship(back_populates="options")

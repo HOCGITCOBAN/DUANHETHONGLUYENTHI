@@ -43,6 +43,26 @@ def list_subjects(): ...
 Backend băm mật khẩu bằng Argon2id, từ chối email đã tồn tại và gán quyền `student`.
 Tài khoản được lưu bằng SQLAlchemy trong SQLite; Alembic quản lý migration bảng `users`.
 
+## Ngân hàng câu hỏi và bảo vệ câu hỏi đã xuất bản (US-07)
+
+**Ngân hàng câu hỏi** (`/admin/questions`, chỉ admin): `GET` liệt kê, `POST` tạo, `PATCH /{id}`
+sửa, `DELETE /{id}` xóa. Một câu có 2 đến 6 phương án và đúng một phương án đúng; `subject_id`
+phải tồn tại; `difficulty` là `easy`, `medium` hoặc `hard`. Phương án chỉ được sửa cùng câu hỏi.
+
+**Bảo vệ câu hỏi đã xuất bản**: quy tắc dựa trên trạng thái đề chứa câu hỏi.
+
+| Câu hỏi nằm trong | `PATCH` (kể cả đổi `is_active`) | `DELETE` |
+|---|---|---|
+| Không đề nào | Cho phép | Cho phép (204) |
+| Chỉ đề `draft` hoặc `archived` | Cho phép | **409** (hãy ẩn bằng `is_active=false`) |
+| Có ít nhất một đề `published` | **409** | **409** |
+
+- 409 trả `{"detail": "Câu hỏi đang nằm trong đề thi đã xuất bản nên không thể sửa hoặc xóa. Hãy lưu trữ đề thi trước."}`.
+- Muốn sửa câu đang ở đề đã xuất bản: lưu trữ đề (`archived`) rồi sửa. Đề xuất bản lại thì câu bị khóa lại.
+- Logic nằm ở `app/question_lock.py` (đọc danh sách câu hỏi JSON của các đề `published`). Route nào
+  sửa/xóa câu hỏi hoặc phương án cũng phải gọi `ensure_not_in_published_exam(db, question_id)`.
+- Kiểm tra ở tầng ứng dụng: endpoint `publish` nên kiểm tra trong cùng transaction với việc đổi trạng thái.
+
 ## Chạy trên máy
 
 Cần Python 3.11 trở lên và đầy đủ hai thư mục `SmartExam_Backend`, `SmartExam_Frontend`
@@ -211,6 +231,7 @@ app/
   schemas.py           # Request/response công khai
   routes.py            # POST /auth/register
   admin.py             # admin_router + require_admin (401/403 cho /admin/*)
+  question_lock.py     # Chặn sửa/xóa câu hỏi nằm trong đề đã xuất bản (409)
   security.py          # Argon2id
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration
