@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.database import Base
 from app.main import create_app
-from app.models import Subject, User
+from app.models import Question, QuestionOption, Subject, User
 from app.security import create_access_token, password_hasher
 
 
@@ -19,7 +19,17 @@ def test_admin_can_create_and_edit_draft_exam(tmp_path):
         subject = Subject(name="JavaScript", slug="javascript")
         session.add_all([admin, subject])
         session.commit()
-        admin_id, subject_id = admin.id, subject.id
+        question = Question(
+            subject_id=subject.id,
+            text="Câu hỏi 1",
+            options=[
+                QuestionOption(text="A", is_correct=True, position=0),
+                QuestionOption(text="B", is_correct=False, position=1),
+            ],
+        )
+        session.add(question)
+        session.commit()
+        admin_id, subject_id, question_id = admin.id, subject.id, question.id
     headers = {"Authorization": f"Bearer {create_access_token(admin_id, 'admin')}"}
     payload = {
         "title": "Đề nháp",
@@ -42,10 +52,10 @@ def test_admin_can_create_and_edit_draft_exam(tmp_path):
             associated = client.put(
                 f"/admin/exams/{exam_id}/questions",
                 headers=headers,
-                json={"questions": [{"question_id": "question-1", "points": 2}]},
+                json={"questions": [{"question_id": question_id, "points": 2}]},
             )
             assert associated.status_code == 200, associated.text
-            assert associated.json()["questions"] == [{"question_id": "question-1", "points": 2.0}]
+            assert associated.json()["questions"] == [{"question_id": question_id, "points": 2.0}]
 
             edited = client.patch(
                 f"/admin/exams/{exam_id}",
@@ -68,8 +78,8 @@ def test_admin_can_create_and_edit_draft_exam(tmp_path):
                 headers=headers,
                 json={
                     "questions": [
-                        {"question_id": "question-1", "points": 1},
-                        {"question_id": "question-1", "points": 2},
+                        {"question_id": question_id, "points": 1},
+                        {"question_id": question_id, "points": 2},
                     ]
                 },
             )

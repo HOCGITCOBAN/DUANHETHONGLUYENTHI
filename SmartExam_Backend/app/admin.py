@@ -111,6 +111,17 @@ def update_exam(exam_id: str, payload: ExamWrite, db: Annotated[Session, Depends
     return exam
 
 
+def ensure_questions_exist(db: Session, question_ids: list[str]) -> None:
+    if not question_ids:
+        return
+    found = set(db.scalars(select(Question.id).where(Question.id.in_(question_ids))))
+    missing = [question_id for question_id in question_ids if question_id not in found]
+    if missing:
+        raise HTTPException(
+            status_code=422, detail="Câu hỏi không tồn tại: " + ", ".join(missing) + "."
+        )
+
+
 @admin_router.put("/exams/{exam_id}/questions", response_model=ExamResponse)
 def update_exam_questions(
     exam_id: str, payload: ExamQuestionsWrite, db: Annotated[Session, Depends(get_db)]
@@ -123,6 +134,7 @@ def update_exam_questions(
     question_ids = [question.question_id for question in payload.questions]
     if len(set(question_ids)) != len(question_ids):
         raise HTTPException(status_code=422, detail="Câu hỏi trong đề không được trùng.")
+    ensure_questions_exist(db, question_ids)
     exam.questions = [question.model_dump() for question in payload.questions]
     db.commit()
     db.refresh(exam)

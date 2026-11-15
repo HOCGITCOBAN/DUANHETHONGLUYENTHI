@@ -43,11 +43,22 @@ def list_subjects(): ...
 Backend băm mật khẩu bằng Argon2id, từ chối email đã tồn tại và gán quyền `student`.
 Tài khoản được lưu bằng SQLAlchemy trong SQLite; Alembic quản lý migration bảng `users`.
 
-## Ngân hàng câu hỏi và bảo vệ câu hỏi đã xuất bản (US-07)
+## Câu hỏi, gán câu hỏi vào đề và bảo vệ đề đã xuất bản (US-07, US-09)
 
 **Ngân hàng câu hỏi** (`/admin/questions`, chỉ admin): `GET` liệt kê, `POST` tạo, `PATCH /{id}`
 sửa, `DELETE /{id}` xóa. Một câu có 2 đến 6 phương án và đúng một phương án đúng; `subject_id`
 phải tồn tại; `difficulty` là `easy`, `medium` hoặc `hard`. Phương án chỉ được sửa cùng câu hỏi.
+
+**Gán câu hỏi vào đề** (`PUT /admin/exams/{id}/questions`): body
+`{"questions": [{"question_id": "...", "points": 2}, ...]}`. Mỗi lần gọi là **thay toàn bộ** danh sách
+của đề.
+
+- Thứ tự của mảng chính là thứ tự câu trong đề; muốn đổi thứ tự thì gửi lại mảng đã sắp xếp.
+- `points` là số lớn hơn 0 và không quá 100, đặt riêng cho từng câu. Không nhận trường nào khác.
+- Một câu hỏi chỉ được chọn một lần: trùng thì **422** `Câu hỏi trong đề không được trùng.`
+- Câu hỏi phải có trong ngân hàng: không tồn tại thì **422** `Câu hỏi không tồn tại: <id>.`
+- Chỉ đề `draft` mới sửa được danh sách, đề `published` hoặc `archived` trả **409**.
+- Khi bị từ chối (422, 409), danh sách cũ của đề giữ nguyên.
 
 **Bảo vệ câu hỏi đã xuất bản**: quy tắc dựa trên trạng thái đề chứa câu hỏi.
 
