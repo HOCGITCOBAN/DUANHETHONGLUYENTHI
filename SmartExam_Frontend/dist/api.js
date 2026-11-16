@@ -25,6 +25,11 @@ makeQ('q15','s3','Definition of Done giúp nhóm làm gì?',['Hiểu chung về 
 return {subjects,questions,exams:[{id:'e1',title:'JavaScript: Nền tảng vững chắc',description:'Ôn tập biến, mảng và tư duy bất đồng bộ qua những câu hỏi trọng tâm.',subject_id:'s1',duration_minutes:20,pass_score:70,max_attempts:5,difficulty:'medium',status:'published',questions:questions.filter(q=>q.subject_id==='s1').map(q=>({question_id:q.id,points:1}))},{id:'e2',title:'Làm chủ truy vấn SQL',description:'Củng cố kiến thức cơ sở dữ liệu quan hệ và transaction.',subject_id:'s2',duration_minutes:15,pass_score:60,max_attempts:3,difficulty:'medium',status:'published',questions:questions.filter(q=>q.subject_id==='s2').map(q=>({question_id:q.id,points:1}))},{id:'e3',title:'Agile & Scrum Essentials',description:'Kiểm tra kiến thức framework Scrum để sẵn sàng cho dự án nhóm.',subject_id:'s3',duration_minutes:15,pass_score:80,max_attempts:5,difficulty:'easy',status:'published',questions:questions.filter(q=>q.subject_id==='s3').map(q=>({question_id:q.id,points:1}))}],users:[{id:'u1',name:'Đinh Quang Hảo',email:'student@smartexam.vn',role:'student'},{id:'u2',name:'Quản trị viên',email:'admin@smartexam.vn',role:'admin'}],attempts:[]};}
 let db;try{db=JSON.parse(localStorage.getItem(KEY))||seed()}catch{db=seed()}
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
+async function demoPasswordHash(email,password){
+  const bytes=new TextEncoder().encode(`${email.toLowerCase()}\u0000${password}`);
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 let user=null;
 const requireUser=()=>user||fail('Vui lòng đăng nhập.');
 const admin=()=>{requireUser();if(user.role!=='admin')fail('Bạn không có quyền quản trị (403).')};
@@ -51,23 +56,34 @@ function apiErrorMessage(path,status,data){
   return typeof data?.detail==='string'?data.detail:`Yêu cầu thất bại (${status}).`;
 }
 async function request(path,method='GET',body){
-  const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),15000);
-  try{
-    const res=await fetch((config.baseUrl||'').replace(/\/$/,'')+path,{method,signal:ctrl.signal,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
-    const data=res.status===204?null:await res.json().catch(()=>null);
-    if(!res.ok){
-      if(res.status===401){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
-      throw Error(apiErrorMessage(path,res.status,data));
-    }
-    return data;
-  }catch(error){
-    if(error.name==='AbortError')throw Error('Máy chủ phản hồi quá lâu. Vui lòng thử lại.');
-    if(error instanceof TypeError)throw Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối và thử lại.');
-    throw error;
-  }finally{clearTimeout(timeout)}
+  const url=(config.baseUrl||'').replace(/\/$/,'')+path;
+  const attempts=method==='GET'?2:1;
+  for(let attempt=0;attempt<attempts;attempt++){
+    const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),15000);
+    try{
+      const res=await fetch(url,{method,signal:ctrl.signal,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
+      const data=res.status===204?null:await res.json().catch(()=>null);
+      if(!res.ok){
+        if(res.status===401){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
+        if(attempt+1<attempts&&[502,503,504].includes(res.status))continue;
+        throw Error(apiErrorMessage(path,res.status,data));
+      }
+      return data;
+    }catch(error){
+      if(error.name==='AbortError'){
+        if(attempt+1<attempts)continue;
+        throw Error('Máy chủ phản hồi quá lâu. Vui lòng thử lại.');
+      }
+      if(error instanceof TypeError){
+        if(attempt+1<attempts)continue;
+        throw Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối và thử lại.');
+      }
+      throw error;
+    }finally{clearTimeout(timeout)}
+  }
 }
 export const api={
-async login(email,password){if(!DEMO){const data=await request('/auth/login','POST',{email,password});token=data.access_token;user=await request('/auth/me');return {user,token}}const u=db.users.find(u=>u.email.toLowerCase()===email.toLowerCase());if(!u||password!==(u.role==='admin'?'admin123':'demo123'))fail('Email hoặc mật khẩu chưa đúng. Tài khoản demo dùng mật khẩu ghi bên dưới.');user=u;return {user:clone(u),token:'demo'}},
+async login(email,password){if(!DEMO){const data=await request('/auth/login','POST',{email,password});token=data.access_token;user=await request('/auth/me');return {user,token}}const u=db.users.find(u=>u.email.toLowerCase()===email.toLowerCase());const valid=u&&(u.password_hash?u.password_hash===await demoPasswordHash(u.email,password):password===(u.role==='admin'?'admin123':'demo123'));if(!valid)fail('Email hoặc mật khẩu chưa đúng.');user=u;return {user:clone(u),token:'demo'}},
 async register(data){
   if(!DEMO){
     return request('/auth/register','POST',{
@@ -79,7 +95,8 @@ async register(data){
   if(db.users.some(u=>u.email.toLowerCase()===data.email.toLowerCase())){
     fail('Email đã được sử dụng.');
   }
-  db.users.push({id:uid(),name:data.name,email:data.email.toLowerCase(),role:'student'});
+  const email=data.email.trim().toLowerCase();
+  db.users.push({id:uid(),name:data.name,email,role:'student',password_hash:await demoPasswordHash(email,data.password)});
   save();
   return true;
 },
