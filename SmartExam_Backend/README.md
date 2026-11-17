@@ -74,6 +74,34 @@ của đề.
   sửa/xóa câu hỏi hoặc phương án cũng phải gọi `ensure_not_in_published_exam(db, question_id)`.
 - Kiểm tra ở tầng ứng dụng: endpoint `publish` nên kiểm tra trong cùng transaction với việc đổi trạng thái.
 
+## Lưu đáp án và tự chấm khi hết giờ (US-14, US-17)
+
+**`PUT /attempts/{attempt_id}/answers/{question_id}`** (cần đăng nhập, chỉ chủ lượt thi) với body
+`{"option_id": "..."}` lưu ngay đáp án vào CSDL và trả `{"question_id", "option_id"}`. Gọi lại với
+phương án khác thì **đổi đáp án** (mỗi câu chỉ có một bản ghi trong `attempt_answers`).
+
+| Tình huống | Kết quả |
+|---|---|
+| `now <= deadline_at`, lượt thi `in_progress` | 200, đáp án được lưu hoặc đổi |
+| `now > deadline_at` | **409** `Đã hết giờ làm bài...`; server chuyển lượt thi sang `expired` và chốt điểm |
+| Lượt thi đã `expired` | 409 (như trên), đáp án không đổi |
+| Lượt thi đã `submitted` | 409 `Bài thi đã kết thúc...` |
+| Lượt thi không tồn tại hoặc của người khác | 404 |
+| Câu hỏi không thuộc đề | 404 |
+| Phương án không thuộc câu hỏi | 422 |
+
+- Giờ kiểm tra là giờ **server** (UTC), không tin đồng hồ máy khách. `now == deadline_at` vẫn hợp lệ.
+- Khi chốt (`expire_if_due` trong `app/attempts.py`): `status = expired`, `submitted_at = deadline_at`,
+  `score` theo thang 0-100 = tổng `points` các câu đúng / tổng `points` của đề, `correct_count`,
+  `passed = score >= pass_score`. Câu chưa trả lời tính 0 điểm. Đáp án gửi sau hạn không được lưu.
+- Việc chốt diễn ra khi lượt thi được truy cập sau hạn (lười biếng). Các endpoint khác
+  (`GET /attempts/{id}`, `submit`, `result`, `/me/attempts`) nên gọi `expire_if_due`, và có thể gọi
+  `expire_overdue_attempts(db)` từ một tác vụ định kỳ để chốt những lượt không ai mở lại.
+- Câu hỏi của lượt thi lấy từ `exams.questions`; đề `published` không sửa được danh sách và câu hỏi
+  trong đề `published` bị khóa (US-07), nên không cần chép snapshot.
+- Migration `0005` thêm `attempts` và `attempt_answers`. Chưa có endpoint bắt đầu lượt thi
+  (`POST /exams/{id}/attempts`); test tạo lượt thi trực tiếp trong CSDL.
+
 ## Chạy trên máy
 
 Cần Python 3.11 trở lên và đầy đủ hai thư mục `SmartExam_Backend`, `SmartExam_Frontend`
@@ -243,6 +271,7 @@ app/
   routes.py            # POST /auth/register
   admin.py             # admin_router + require_admin (401/403 cho /admin/*)
   question_lock.py     # Chặn sửa/xóa câu hỏi nằm trong đề đã xuất bản (409)
+  attempts.py          # PUT /attempts/{id}/answers/{question_id}, chấm khi hết giờ
   security.py          # Argon2id
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration

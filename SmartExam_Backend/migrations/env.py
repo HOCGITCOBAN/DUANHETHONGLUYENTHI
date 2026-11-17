@@ -3,6 +3,8 @@ from sqlalchemy import create_engine, pool
 
 from app.database import Base, get_database_url
 from app.models import (  # noqa: F401 - register model metadata
+    Attempt,
+    AttemptAnswer,
     Exam,
     Question,
     QuestionOption,

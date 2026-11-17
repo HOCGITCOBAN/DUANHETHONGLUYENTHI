@@ -173,3 +173,14 @@ class QuestionResponse(BaseModel):
     explanation: str | None
     difficulty: Difficulty
     is_active: bool
+
+
+class AnswerWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    option_id: str = Field(min_length=1, max_length=36)
+
+
+class AnswerResponse(BaseModel):
+    question_id: str
+    option_id: str
