@@ -12,10 +12,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
     text,
+    true,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -74,3 +76,86 @@ class Exam(Base):
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="draft")
     questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+
+
+class Question(Base):
+    __tablename__ = "questions"
+    __table_args__ = (
+        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_questions_difficulty"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    subject_id: Mapped[str] = mapped_column(
+        ForeignKey("subjects.id", name="fk_questions_subject_id"), nullable=False
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    difficulty: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="medium", server_default="medium"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    options: Mapped[list["QuestionOption"]] = relationship(
+        back_populates="question",
+        cascade="all, delete-orphan",
+        order_by="QuestionOption.position",
+    )
+
+
+class QuestionOption(Base):
+    __tablename__ = "question_options"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("questions.id", name="fk_question_options_question_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_correct: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    question: Mapped["Question"] = relationship(back_populates="options")
+
+
+class Attempt(Base):
+    __tablename__ = "attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('in_progress', 'submitted', 'expired')", name="ck_attempts_status"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    exam_id: Mapped[str] = mapped_column(
+        ForeignKey("exams.id", name="fk_attempts_exam_id"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", name="fk_attempts_user_id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="in_progress", server_default="in_progress"
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    correct_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class AttemptAnswer(Base):
+    __tablename__ = "attempt_answers"
+
+    attempt_id: Mapped[str] = mapped_column(
+        ForeignKey("attempts.id", name="fk_attempt_answers_attempt_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("questions.id", name="fk_attempt_answers_question_id"), primary_key=True
+    )
+    option_id: Mapped[str] = mapped_column(
+        ForeignKey("question_options.id", name="fk_attempt_answers_option_id"), nullable=False
+    )
+    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
