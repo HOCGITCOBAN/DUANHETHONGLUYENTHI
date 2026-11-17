@@ -307,8 +307,8 @@ def test_score_is_rounded_to_two_decimals_and_compared_with_pass_score(env):
 def test_expire_overdue_attempts_grades_only_overdue_in_progress_attempts(env):
     overdue_a = make_attempt(env, [1])
     overdue_b = make_attempt(env, [1], owner="bob")
-    on_time = make_attempt(env, [1])
-    finished = make_attempt(env, [1], status="submitted")
+    on_time = make_attempt(env, [1], owner="admin")
+    finished = make_attempt(env, [1], owner="alice", status="submitted")
     question = overdue_a.questions[0]
     put_answer(env, overdue_a.id, question["id"], option_id(question, correct=True))
     with env.app.state.session_factory() as session:

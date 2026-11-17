@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import sessionmaker
 
 from app.admin import admin_router
+from app.attempt_start import router as attempt_start_router
 from app.attempts import router as attempts_router
 from app.database import get_database_url, make_engine
 from app.routes import router, subjects_router
@@ -40,6 +41,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     application.include_router(subjects_router)
     application.include_router(admin_router)
     application.include_router(attempts_router)
+    application.include_router(attempt_start_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[

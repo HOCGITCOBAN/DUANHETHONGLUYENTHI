@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -124,6 +125,13 @@ class Attempt(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ('in_progress', 'submitted', 'expired')", name="ck_attempts_status"
+        ),
+        Index(
+            "uq_attempts_one_in_progress_per_user",
+            "user_id",
+            unique=True,
+            sqlite_where=text("status = 'in_progress'"),
+            postgresql_where=text("status = 'in_progress'"),
         ),
     )
 
