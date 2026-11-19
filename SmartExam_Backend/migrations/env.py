@@ -6,6 +6,7 @@ from app.models import (  # noqa: F401 - register model metadata
     Attempt,
     AttemptAnswer,
     Exam,
+    ExamQuestion,
     Question,
     QuestionOption,
     Subject,
