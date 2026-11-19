@@ -102,6 +102,15 @@ phương án khác thì **đổi đáp án** (mỗi câu chỉ có một bản g
 - Migration `0005` thêm `attempts` và `attempt_answers`. Chưa có endpoint bắt đầu lượt thi
   (`POST /exams/{id}/attempts`); test tạo lượt thi trực tiếp trong CSDL.
 
+## Cơ sở dữ liệu: 8 bảng (T05F928)
+
+Alembic (`migrations/versions/0001`–`0007`) tạo đủ 8 bảng: `users`, `subjects`, `exams`, `questions`,
+`question_options`, `exam_questions`, `attempts`, `attempt_answers`. Bảng `exam_questions`
+(migration `0007`) lưu thứ tự và điểm từng câu trong đề, khóa chính `(exam_id, question_id)`;
+migration tự chép dữ liệu từ cột JSON `exams.questions` (bỏ qua câu trùng, không tồn tại hoặc điểm
+ngoài khoảng 0–100). Cột JSON vẫn là nguồn dữ liệu mà các API hiện tại đọc/ghi; chuyển API sang bảng
+mới là việc của task sau. Kiểm tra: `python -m alembic upgrade head`, `python -m pytest tests/test_migrations.py`.
+
 ## Chạy trên máy
 
 Cần Python 3.11 trở lên và đầy đủ hai thư mục `SmartExam_Backend`, `SmartExam_Frontend`

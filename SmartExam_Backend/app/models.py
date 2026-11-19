@@ -167,3 +167,25 @@ class AttemptAnswer(Base):
         ForeignKey("question_options.id", name="fk_attempt_answers_option_id"), nullable=False
     )
     answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ExamQuestion(Base):
+    """Bảng nối đề thi - câu hỏi: thứ tự và điểm của từng câu trong đề."""
+
+    __tablename__ = "exam_questions"
+    __table_args__ = (
+        CheckConstraint("points > 0 AND points <= 100", name="ck_exam_questions_points"),
+        CheckConstraint("position >= 0", name="ck_exam_questions_position"),
+        UniqueConstraint("exam_id", "position", name="uq_exam_questions_exam_position"),
+        Index("ix_exam_questions_question_id", "question_id"),
+    )
+
+    exam_id: Mapped[str] = mapped_column(
+        ForeignKey("exams.id", name="fk_exam_questions_exam_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("questions.id", name="fk_exam_questions_question_id"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    points: Mapped[float] = mapped_column(Float, nullable=False, default=1, server_default="1")
