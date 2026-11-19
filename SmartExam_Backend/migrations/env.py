@@ -2,7 +2,19 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from app.database import Base, get_database_url
+<<<<<<< HEAD
 from app.models import Question, QuestionOption, Subject, User  # noqa: F401 - register model metadata
+=======
+from app.models import (  # noqa: F401 - register model metadata
+    Attempt,
+    AttemptAnswer,
+    Exam,
+    Question,
+    QuestionOption,
+    Subject,
+    User,
+)
+>>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
 
 target_metadata = Base.metadata
 

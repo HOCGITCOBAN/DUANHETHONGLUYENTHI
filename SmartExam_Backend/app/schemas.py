@@ -90,6 +90,7 @@ class SubjectResponse(BaseModel):
     is_active: bool
 
 
+<<<<<<< HEAD
 Difficulty = Literal["easy", "medium", "hard"]
 
 
@@ -99,6 +100,64 @@ class QuestionOptionWrite(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=36)
     text: str = Field(min_length=1, max_length=1000)
     is_correct: StrictBool = False
+=======
+class ExamWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1, max_length=150)
+    description: str = Field(default="", max_length=5000)
+    subject_id: str = Field(min_length=1, max_length=36)
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    duration_minutes: int = Field(default=30, ge=1, le=300)
+    pass_score: float = Field(default=70, ge=0, le=100)
+    max_attempts: int = Field(default=3, ge=1, le=100)
+
+
+class ExamQuestionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str = Field(min_length=1, max_length=36)
+    points: float = Field(gt=0, le=100)
+
+
+class ExamQuestionsWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    questions: list[ExamQuestionWrite] = Field(max_length=200)
+
+
+class ExamResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    description: str
+    subject_id: str
+    difficulty: str
+    duration_minutes: int
+    pass_score: float
+    max_attempts: int
+    status: str
+    questions: list[dict]
+
+
+Difficulty = Literal["easy", "medium", "hard"]
+
+
+class OptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=500)
+    is_correct: bool = False
+
+
+class OptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    text: str
+    is_correct: bool
+>>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
 
 
 class QuestionWrite(BaseModel):
@@ -106,6 +165,7 @@ class QuestionWrite(BaseModel):
 
     subject_id: str = Field(min_length=1, max_length=36)
     text: str = Field(min_length=1, max_length=2000)
+<<<<<<< HEAD
     explanation: str = Field(default="", max_length=5000)
     difficulty: Difficulty
     is_active: StrictBool = True
@@ -146,6 +206,18 @@ class QuestionOptionResponse(BaseModel):
     id: str
     text: str
     is_correct: bool
+=======
+    options: list[OptionWrite] = Field(min_length=2, max_length=6)
+    explanation: str | None = Field(default=None, max_length=2000)
+    difficulty: Difficulty = "medium"
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def require_exactly_one_correct_option(self) -> "QuestionWrite":
+        if sum(option.is_correct for option in self.options) != 1:
+            raise ValueError("Câu hỏi phải có đúng một phương án đúng.")
+        return self
+>>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
 
 
 class QuestionResponse(BaseModel):
@@ -154,7 +226,25 @@ class QuestionResponse(BaseModel):
     id: str
     subject_id: str
     text: str
+<<<<<<< HEAD
     explanation: str
     difficulty: Difficulty
     is_active: bool
     options: list[QuestionOptionResponse]
+=======
+    options: list[OptionResponse]
+    explanation: str | None
+    difficulty: Difficulty
+    is_active: bool
+
+
+class AnswerWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    option_id: str = Field(min_length=1, max_length=36)
+
+
+class AnswerResponse(BaseModel):
+    question_id: str
+    option_id: str
+>>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
