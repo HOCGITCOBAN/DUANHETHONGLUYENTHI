@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.models import Exam, Question, QuestionOption, Subject, User
+from app.models import Attempt, Exam, Question, QuestionOption, Subject, User
 from app.question_lock import ensure_not_in_any_exam, ensure_not_in_published_exam
 from app.routes import current_user
 from app.schemas import (
@@ -142,6 +142,72 @@ def update_exam_questions(
     db.commit()
     db.refresh(exam)
     return exam
+
+
+@admin_router.post("/exams/{exam_id}/publish", response_model=ExamResponse)
+def publish_exam(exam_id: str, db: Annotated[Session, Depends(get_db)]) -> Exam:
+    exam = db.get(Exam, exam_id)
+    if exam is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
+    if exam.status != "draft":
+        raise HTTPException(status_code=409, detail="Chỉ xuất bản được đề nháp.")
+    if not exam.questions:
+        raise HTTPException(status_code=409, detail="Đề thi cần ít nhất một câu hỏi.")
+    subject = db.get(Subject, exam.subject_id)
+    if subject is None or not subject.is_active:
+        raise HTTPException(status_code=409, detail="Môn học của đề thi chưa được mở.")
+    ids = [item["question_id"] for item in exam.questions]
+    questions = db.scalars(
+        select(Question).options(selectinload(Question.options)).where(Question.id.in_(ids))
+    ).all()
+    by_id = {question.id: question for question in questions}
+    for question_id in ids:
+        question = by_id.get(question_id)
+        if (
+            question is None
+            or not question.is_active
+            or question.subject_id != exam.subject_id
+            or len(question.options) < 2
+            or sum(option.is_correct for option in question.options) != 1
+        ):
+            raise HTTPException(
+                status_code=409, detail="Đề có câu hỏi không hợp lệ hoặc đã ngừng hoạt động."
+            )
+    exam.status = "published"
+    db.commit()
+    db.refresh(exam)
+    return exam
+
+
+@admin_router.post("/exams/{exam_id}/archive", response_model=ExamResponse)
+def archive_exam(exam_id: str, db: Annotated[Session, Depends(get_db)]) -> Exam:
+    exam = db.get(Exam, exam_id)
+    if exam is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
+    if exam.status != "published":
+        raise HTTPException(status_code=409, detail="Chỉ đóng được đề đã xuất bản.")
+    exam.status = "archived"
+    db.commit()
+    db.refresh(exam)
+    return exam
+
+
+@admin_router.get("/exams/{exam_id}/stats")
+def exam_stats(exam_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
+    if db.get(Exam, exam_id) is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
+    attempts = db.scalars(select(Attempt).where(Attempt.exam_id == exam_id)).all()
+    completed = [attempt for attempt in attempts if attempt.status != "in_progress"]
+    scores = [attempt.score for attempt in completed if attempt.score is not None]
+    passed = [attempt for attempt in completed if attempt.passed is not None]
+    return {
+        "total_attempts": len(attempts),
+        "completed": len(completed),
+        "average_score": sum(scores) / len(scores) if scores else None,
+        "pass_rate": 100 * sum(bool(attempt.passed) for attempt in passed) / len(passed)
+        if passed
+        else None,
+    }
 
 
 def _fill_question(db: Session, question: Question, payload: QuestionWrite) -> None:

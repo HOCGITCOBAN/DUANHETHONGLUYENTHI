@@ -2,18 +2,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Subject, User
+from app.models import Attempt, Exam, Subject, User
 from app.schemas import LoginRequest, RegisterRequest, SubjectResponse, TokenResponse, UserResponse
 from app.security import create_access_token, decode_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Đăng ký"])
 bearer = HTTPBearer(auto_error=False)
 subjects_router = APIRouter(tags=["Subjects"])
+exams_router = APIRouter(tags=["Exams"])
 
 
 def current_user(
@@ -104,4 +105,66 @@ def me(user: Annotated[User, Depends(current_user)]) -> User:
 def list_open_subjects(
     _user: Annotated[User, Depends(current_user)], db: Annotated[Session, Depends(get_db)]
 ) -> list[Subject]:
-    return list(db.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name)))
+    return list(
+        db.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name))
+    )
+
+
+@exams_router.get("/exams")
+def list_published_exams(
+    user: Annotated[User, Depends(current_user)], db: Annotated[Session, Depends(get_db)]
+) -> list[dict]:
+    exams = db.scalars(
+        select(Exam)
+        .join(Subject)
+        .where(Exam.status == "published", Subject.is_active.is_(True))
+        .order_by(Exam.title)
+    ).all()
+    result = []
+    for exam in exams:
+        used = db.scalar(
+            select(func.count())
+            .select_from(Attempt)
+            .where(Attempt.exam_id == exam.id, Attempt.user_id == user.id)
+        )
+        result.append(
+            {
+                "id": exam.id,
+                "title": exam.title,
+                "description": exam.description,
+                "subject_id": exam.subject_id,
+                "difficulty": exam.difficulty,
+                "duration_minutes": exam.duration_minutes,
+                "pass_score": exam.pass_score,
+                "max_attempts": exam.max_attempts,
+                "status": exam.status,
+                "questions": exam.questions,
+                "question_count": len(exam.questions),
+                "used_attempts": used,
+            }
+        )
+    return result
+
+
+@exams_router.get("/me/attempts")
+def list_my_attempts(
+    user: Annotated[User, Depends(current_user)], db: Annotated[Session, Depends(get_db)]
+) -> list[dict]:
+    rows = db.execute(
+        select(Attempt, Exam.title)
+        .join(Exam, Attempt.exam_id == Exam.id)
+        .where(Attempt.user_id == user.id)
+        .order_by(Attempt.started_at.desc())
+    ).all()
+    return [
+        {
+            "id": attempt.id,
+            "exam_id": attempt.exam_id,
+            "title": title,
+            "status": attempt.status,
+            "started_at": attempt.started_at,
+            "score": attempt.score,
+            "passed": attempt.passed,
+        }
+        for attempt, title in rows
+    ]

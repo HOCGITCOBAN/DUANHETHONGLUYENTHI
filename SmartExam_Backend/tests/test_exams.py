@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.database import Base
 from app.main import create_app
-from app.models import Question, QuestionOption, Subject, User
+from app.models import Exam, Question, QuestionOption, Subject, User
 from app.security import create_access_token, password_hasher
 
 
@@ -85,5 +85,65 @@ def test_admin_can_create_and_edit_draft_exam(tmp_path):
             )
             assert duplicate.status_code == 422
             assert client.get("/admin/exams", headers={}).status_code == 401
+    finally:
+        app.state.engine.dispose()
+
+
+def test_admin_publishes_exam_and_student_can_discover_it_without_answers(tmp_path):
+    app = create_app(f"sqlite:///{tmp_path / 'publish.sqlite3'}")
+    Base.metadata.create_all(app.state.engine)
+    with app.state.session_factory() as session:
+        admin = User(full_name="Admin", email="admin@example.com", password_hash="x", role="admin")
+        student = User(full_name="Student", email="student@example.com", password_hash="x")
+        subject = Subject(name="Python", slug="python")
+        session.add_all([admin, student, subject])
+        session.flush()
+        question = Question(
+            subject_id=subject.id,
+            text="2 + 2?",
+            options=[
+                QuestionOption(text="4", is_correct=True, position=0),
+                QuestionOption(text="5", is_correct=False, position=1),
+            ],
+        )
+        exam = Exam(
+            title="Python cơ bản",
+            description="",
+            subject_id=subject.id,
+            difficulty="easy",
+            duration_minutes=10,
+            pass_score=70,
+            max_attempts=2,
+            status="draft",
+            questions=[],
+        )
+        session.add_all([question, exam])
+        session.commit()
+        admin_id, student_id, exam_id, question_id = admin.id, student.id, exam.id, question.id
+    admin_headers = {"Authorization": f"Bearer {create_access_token(admin_id, 'admin')}"}
+    student_headers = {"Authorization": f"Bearer {create_access_token(student_id, 'student')}"}
+    try:
+        with TestClient(app) as client:
+            assert (
+                client.put(
+                    f"/admin/exams/{exam_id}/questions",
+                    headers=admin_headers,
+                    json={"questions": [{"question_id": question_id, "points": 1}]},
+                ).status_code
+                == 200
+            )
+            assert (
+                client.post(f"/admin/exams/{exam_id}/publish", headers=admin_headers).status_code
+                == 200
+            )
+            visible = client.get("/exams", headers=student_headers)
+            assert visible.status_code == 200
+            assert visible.json()[0]["id"] == exam_id
+            assert "is_correct" not in str(visible.json())
+            assert (
+                client.post(f"/admin/exams/{exam_id}/archive", headers=admin_headers).status_code
+                == 200
+            )
+            assert client.get("/exams", headers=student_headers).json() == []
     finally:
         app.state.engine.dispose()
