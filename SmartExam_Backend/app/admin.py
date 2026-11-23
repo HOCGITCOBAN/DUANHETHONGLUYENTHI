@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from app.models import Exam, Question, QuestionOption, Subject, User
 from app.question_lock import ensure_not_in_any_exam, ensure_not_in_published_exam
 from app.routes import current_user
 from app.schemas import (
+    Difficulty,
     ExamQuestionsWrite,
     ExamResponse,
     ExamWrite,
@@ -142,7 +144,7 @@ def update_exam_questions(
     return exam
 
 
-def _fill_question(question: Question, payload: QuestionWrite) -> None:
+def _fill_question(db: Session, question: Question, payload: QuestionWrite) -> None:
     question.subject_id = payload.subject_id
     question.text = payload.text
     question.explanation = payload.explanation
@@ -151,7 +153,10 @@ def _fill_question(question: Question, payload: QuestionWrite) -> None:
     # Phương án luôn được thay trọn bộ cùng câu hỏi, nên chúng chịu cùng khóa với câu hỏi.
     question.options = [
         QuestionOption(
-            id=option.id, text=option.text, is_correct=option.is_correct, position=index
+            id=option.id if db.get(QuestionOption, option.id) is None else str(uuid4()),
+            text=option.text,
+            is_correct=option.is_correct,
+            position=index,
         )
         for index, option in enumerate(payload.options)
     ]
@@ -159,7 +164,7 @@ def _fill_question(question: Question, payload: QuestionWrite) -> None:
 
 def _ensure_question_subject(db: Session, subject_id: str) -> None:
     if db.get(Subject, subject_id) is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy môn học.")
+        raise HTTPException(status_code=404, detail="Môn học không tồn tại.")
 
 
 def _get_question(db: Session, question_id: str) -> Question:
@@ -170,8 +175,19 @@ def _get_question(db: Session, question_id: str) -> Question:
 
 
 @admin_router.get("/questions", response_model=list[QuestionResponse])
-def list_questions(db: Annotated[Session, Depends(get_db)]) -> list[Question]:
+def list_questions(
+    db: Annotated[Session, Depends(get_db)],
+    subject_id: str | None = None,
+    difficulty: Difficulty | None = None,
+    is_active: bool | None = None,
+) -> list[Question]:
     statement = select(Question).options(selectinload(Question.options)).order_by(Question.text)
+    if subject_id is not None:
+        statement = statement.where(Question.subject_id == subject_id)
+    if difficulty is not None:
+        statement = statement.where(Question.difficulty == difficulty)
+    if is_active is not None:
+        statement = statement.where(Question.is_active.is_(is_active))
     return list(db.scalars(statement))
 
 
@@ -181,7 +197,7 @@ def list_questions(db: Annotated[Session, Depends(get_db)]) -> list[Question]:
 def create_question(payload: QuestionWrite, db: Annotated[Session, Depends(get_db)]) -> Question:
     _ensure_question_subject(db, payload.subject_id)
     question = Question()
-    _fill_question(question, payload)
+    _fill_question(db, question, payload)
     db.add(question)
     db.commit()
     db.refresh(question)
@@ -204,7 +220,10 @@ def update_question(
         db.flush()
         question.options.extend(
             QuestionOption(
-                id=option.id, text=option.text, is_correct=option.is_correct, position=index
+                id=option.id if db.get(QuestionOption, option.id) is None else str(uuid4()),
+                text=option.text,
+                is_correct=option.is_correct,
+                position=index,
             )
             for index, option in enumerate(payload.options)
         )

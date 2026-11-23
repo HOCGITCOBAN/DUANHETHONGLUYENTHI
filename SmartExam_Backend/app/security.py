@@ -30,26 +30,32 @@ password_hasher = PasswordHasher(
 )
 
 
+def _bcrypt_input(password: str) -> bytes:
+    # Hash first so bcrypt's 72-byte input limit does not silently truncate passwords.
+    return hashlib.sha256(password.encode("utf-8")).hexdigest().encode("ascii")
+
+
 def hash_password(password: str) -> str:
-    """Create a bcrypt hash for new passwords (bcrypt accepts at most 72 bytes)."""
-    encoded = password.encode("utf-8")
-    if len(encoded) > 72:
-        raise ValueError("Password exceeds bcrypt's 72-byte limit")
-    return bcrypt.hashpw(encoded, bcrypt.gensalt(rounds=12)).decode("ascii")
+    """Create a bcrypt hash of a SHA-256 prehash, supporting the full 128-char limit."""
+    return bcrypt.hashpw(_bcrypt_input(password), bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def verify_password(stored_hash: str, password: str) -> tuple[bool, bool]:
     """Return (valid, needs_rehash), supporting legacy Argon2id hashes."""
     encoded = password.encode("utf-8")
     if stored_hash.startswith(("$2a$", "$2b$", "$2y$")):
-        if len(encoded) > 72:
-            return False, False
         try:
-            return bcrypt.checkpw(encoded, stored_hash.encode("ascii")), False
+            if bcrypt.checkpw(_bcrypt_input(password), stored_hash.encode("ascii")):
+                return True, False
+            # Continue to accept legacy bcrypt hashes created before prehashing.
+            if len(encoded) <= 72:
+                return bcrypt.checkpw(encoded, stored_hash.encode("ascii")), False
+            return False, False
         except (ValueError, TypeError):
             return False, False
     try:
-        return password_hasher.verify(stored_hash, password), True
+        valid = password_hasher.verify(stored_hash, password)
+        return valid, password_hasher.check_needs_rehash(stored_hash)
     except VerificationError:
         return False, False
 

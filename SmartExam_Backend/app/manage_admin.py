@@ -14,6 +14,10 @@ from app.models import User
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Cấp quyền admin cho một tài khoản đã đăng ký.")
     parser.add_argument("email", nargs="?", help="Email tài khoản; bỏ trống để nhập khi chạy.")
     args = parser.parse_args(argv)
