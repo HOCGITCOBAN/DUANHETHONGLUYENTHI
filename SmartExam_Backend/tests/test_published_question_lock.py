@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.database import Base
 from app.main import create_app
-from app.models import Exam, ExamQuestion, Subject, User
+from app.models import Exam, Subject, User
 from app.question_lock import IN_EXAM_MESSAGE, PUBLISHED_LOCK_MESSAGE
 from app.security import create_access_token, password_hasher
 
@@ -65,6 +65,20 @@ def create_question(env, **overrides):
     return response.json()
 
 
+def create_exam(env, title="Đề kiểm tra"):
+    response = env.client.post(
+        "/admin/exams", headers=env.admin, json={"title": title, "subject_id": env.subject_id}
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def set_exam_status(env, exam_id, status):
+    with env.app.state.session_factory() as session:
+        session.get(Exam, exam_id).status = status
+        session.commit()
+
+
 def edit_question(env, question_id, **overrides):
     return env.client.patch(
         f"/admin/questions/{question_id}",
@@ -80,33 +94,22 @@ def list_questions(env):
 
 
 def add_exam(env, status, question_ids, title="Đề kiểm tra"):
+    """Thêm đề trực tiếp vào CSDL; câu hỏi lưu dạng JSON giống PUT /admin/exams/{id}/questions."""
     with env.app.state.session_factory() as session:
         exam = Exam(
             title=title,
             description="",
             subject_id=env.subject_id,
-            duration_minutes=30,
-            pass_score=50.0,
-            max_attempts=1,
             difficulty="medium",
+            duration_minutes=30,
+            pass_score=70,
+            max_attempts=3,
             status=status,
+            questions=[{"question_id": qid, "points": 1.0} for qid in question_ids],
         )
         session.add(exam)
-        session.flush()
-        for position, question_id in enumerate(question_ids):
-            session.add(
-                ExamQuestion(
-                    exam_id=exam.id, question_id=question_id, points=1.0, position=position
-                )
-            )
         session.commit()
         return exam.id
-
-
-def set_exam_status(env, exam_id, status):
-    with env.app.state.session_factory() as session:
-        session.get(Exam, exam_id).status = status
-        session.commit()
 
 
 def test_question_crud_when_it_is_not_in_any_exam(env):
@@ -242,3 +245,19 @@ def test_missing_question_is_404_even_when_published_exams_exist(env):
 
     assert edit_question(env, "missing").status_code == 404
     assert env.client.delete("/admin/questions/missing", headers=env.admin).status_code == 404
+
+
+def test_question_assigned_through_the_api_is_locked_once_the_exam_is_published(env):
+    question = create_question(env)
+    exam_id = create_exam(env)
+    assigned = env.client.put(
+        f"/admin/exams/{exam_id}/questions",
+        headers=env.admin,
+        json={"questions": [{"question_id": question["id"], "points": 2}]},
+    )
+    assert assigned.status_code == 200, assigned.text
+    assert edit_question(env, question["id"], text="Sửa khi đề còn nháp").status_code == 200
+
+    set_exam_status(env, exam_id, "published")
+
+    assert edit_question(env, question["id"], text="Sửa khi đã xuất bản").status_code == 409

@@ -16,7 +16,7 @@ assert.equal((await api.attempt(a.id)).answers[q.id],q.options[0].id);
 const result=await api.submit(a.id);assert.equal(result.correct_count,1);assert.equal(result.status,'submitted');
 assert.equal((await api.submit(a.id)).score,result.score);
 await assert.rejects(()=>api.answer(a.id,q.id,q.options[1].id),/kết thúc/);
-await api.register({name:'Sinh viên B',email:'b@example.com',password:'example'});await api.login('b@example.com','demo123');
+await api.register({name:'Sinh viên B',email:'b@example.com',password:'example-password'});await assert.rejects(()=>api.login('b@example.com','demo123'));await api.login('b@example.com','example-password');
 assert.equal((await api.history()).length,0);await assert.rejects(()=>api.result(a.id),/Không tìm thấy/);
 await api.login('admin@smartexam.vn','admin123');
 const questions=await api.questions();await assert.rejects(()=>api.saveQuestion({...questions[0],text:'Đổi nội dung'}),/khóa|xuất bản/);

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -56,6 +57,28 @@ class Subject(Base):
     )
 
 
+class Exam(Base):
+    __tablename__ = "exams"
+    __table_args__ = (
+        CheckConstraint("duration_minutes BETWEEN 1 AND 300", name="ck_exams_duration"),
+        CheckConstraint("pass_score BETWEEN 0 AND 100", name="ck_exams_pass_score"),
+        CheckConstraint("max_attempts BETWEEN 1 AND 100", name="ck_exams_max_attempts"),
+        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_exams_difficulty"),
+        CheckConstraint("status IN ('draft', 'published', 'archived')", name="ck_exams_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    subject_id: Mapped[str] = mapped_column(ForeignKey("subjects.id"), nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    pass_score: Mapped[float] = mapped_column(Float, nullable=False, default=70)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="draft")
+    questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+
+
 class Question(Base):
     __tablename__ = "questions"
     __table_args__ = (
@@ -97,41 +120,50 @@ class QuestionOption(Base):
     question: Mapped["Question"] = relationship(back_populates="options")
 
 
-class Exam(Base):
-    __tablename__ = "exams"
+class Attempt(Base):
+    __tablename__ = "attempts"
     __table_args__ = (
-        CheckConstraint("difficulty IN ('easy', 'medium', 'hard')", name="ck_exams_difficulty"),
-        CheckConstraint("status IN ('draft', 'published', 'archived')", name="ck_exams_status"),
+        CheckConstraint(
+            "status IN ('in_progress', 'submitted', 'expired')", name="ck_attempts_status"
+        ),
+        Index(
+            "uq_attempts_one_in_progress_per_user",
+            "user_id",
+            unique=True,
+            sqlite_where=text("status = 'in_progress'"),
+            postgresql_where=text("status = 'in_progress'"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
-    subject_id: Mapped[str] = mapped_column(
-        ForeignKey("subjects.id", name="fk_exams_subject_id"), nullable=False
+    exam_id: Mapped[str] = mapped_column(
+        ForeignKey("exams.id", name="fk_attempts_exam_id"), nullable=False
     )
-    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
-    pass_score: Mapped[float] = mapped_column(Float, nullable=False)
-    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    difficulty: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="medium", server_default="medium"
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", name="fk_attempts_user_id"), nullable=False
     )
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="draft", server_default="draft"
+        String(20), nullable=False, default="in_progress", server_default="in_progress"
     )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    correct_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
-class ExamQuestion(Base):
-    __tablename__ = "exam_questions"
-    __table_args__ = (Index("ix_exam_questions_question_id", "question_id"),)
+class AttemptAnswer(Base):
+    __tablename__ = "attempt_answers"
 
-    exam_id: Mapped[str] = mapped_column(
-        ForeignKey("exams.id", name="fk_exam_questions_exam_id", ondelete="CASCADE"),
+    attempt_id: Mapped[str] = mapped_column(
+        ForeignKey("attempts.id", name="fk_attempt_answers_attempt_id", ondelete="CASCADE"),
         primary_key=True,
     )
     question_id: Mapped[str] = mapped_column(
-        ForeignKey("questions.id", name="fk_exam_questions_question_id", ondelete="RESTRICT"),
-        primary_key=True,
+        ForeignKey("questions.id", name="fk_attempt_answers_question_id"), primary_key=True
     )
-    points: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    option_id: Mapped[str] = mapped_column(
+        ForeignKey("question_options.id", name="fk_attempt_answers_option_id"), nullable=False
+    )
+    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
