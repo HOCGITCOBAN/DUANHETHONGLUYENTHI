@@ -1,88 +1,12 @@
 # SmartExam Backend — US-01 / T05F912
 
-## US-06 — CRUD Câu hỏi & Phương án / T05F917
+## US-06 — Quản lý ngân hàng câu hỏi
 
-Chạy `python -m alembic upgrade head` để thêm `questions` và `question_options`
-(migration `0003`, tiếp nối `0002` của danh mục môn học). Migration giữ nguyên tài khoản
-và môn học đã có. Backend phục vụ frontend cùng origin; đăng nhập admin sẽ mở
-Ngân hàng câu hỏi, không cần API đề thi để truy cập trang này.
-
-Các endpoint đều yêu cầu JWT và quyền admin từ CSDL:
-
-| Method | Endpoint | Kết quả |
-|---|---|---|
-| GET | `/admin/questions` | Mảng câu hỏi, gồm cả câu đã ẩn và đáp án đúng |
-| POST | `/admin/questions` | Tạo câu hỏi và phương án trong cùng transaction, trả 201 |
-| PATCH | `/admin/questions/{id}` | Cập nhật các trường được gửi, trả 200 |
-
-GET hỗ trợ kết hợp `subject_id`, `difficulty=easy\|medium\|hard`, `is_active=true\|false`.
-Không có token hoặc token sai/hết hạn trả 401; student trả 403. Không có API công khai
-để đọc đáp án từ ngân hàng câu hỏi.
-
-Ví dụ body tạo câu hỏi:
-
-```json
-{
-  "subject_id": "id-mon-hoc-da-ton-tai",
-  "text": "Từ khóa nào khai báo biến có phạm vi khối?",
-  "difficulty": "easy",
-  "explanation": "let khai báo biến có phạm vi khối.",
-  "is_active": true,
-  "options": [
-    {"text": "let", "is_correct": true},
-    {"text": "var", "is_correct": false}
-  ]
-}
-```
-
-- Mỗi câu có 2–6 phương án, đúng một phương án `is_correct: true`; các cờ dùng boolean JSON.
-- Nội dung câu hỏi được trim, dài 1–2000 ký tự; nội dung từng phương án 1–1000 ký tự.
-  Lời giải không bắt buộc, tối đa 5000 ký tự; độ khó là `easy`, `medium` hoặc `hard`.
-- Môn học phải tồn tại, nếu không trả 404. Câu hỏi không tồn tại khi sửa cũng trả 404.
-- ID câu hỏi do server sinh. Mỗi phương án có `id` riêng trong câu hỏi (1–36 ký tự);
-  nếu bỏ qua, server sinh UUID. Khi sửa, gửi lại ID để giữ định danh; thứ tự mảng là thứ tự hiển thị.
-- PATCH chỉ thay trường được gửi; nếu gửi `options`, phải gửi toàn bộ danh sách hợp lệ.
-  Việc thay nội dung và phương án là một transaction; lỗi lưu sẽ hoàn tác cả hai.
-- Ẩn bằng `PATCH /admin/questions/{id}` với `{"is_active": false}`; mở lại bằng `true`.
-  Không xóa cứng câu hỏi/phương án khi ẩn. Không gửi `id` câu hỏi trong body.
-- Dữ liệu sai, trường lạ, PATCH rỗng hoặc giá trị `null` trả 422, với `detail` dạng
-  mảng `{loc,msg,type}`; dữ liệu đầu vào không được phản chiếu trong lỗi.
-
-Kiểm thử riêng phần này và migration:
-
-```bash
-python -m pytest -q tests/test_questions.py tests/test_migrations.py
-```
-
-Các API đề thi/xuất bản và quy tắc khóa sửa câu đã xuất bản thuộc các user story sau;
-chưa có bảng đề thi ở backend hiện tại. `api-demo` của frontend vẫn dùng ngân hàng
-câu hỏi mô phỏng; dùng frontend do FastAPI phục vụ để kiểm tra dữ liệu thật.
-
-## Chạy trên Windows và cấp quyền admin cục bộ
-
-Đăng ký công khai luôn tạo tài khoản `student`, kể cả khi đặt họ tên là `admin`.
-Tên hiển thị không quyết định quyền. Để kiểm tra US-06, chủ CSDL phát triển có thể
-cấp quyền cho đúng email đã đăng ký bằng terminal tại thư mục backend:
-
-```powershell
-cd "$env:USERPROFILE\Downloads\DUANHETHONGLUYENTHI\SmartExam_Backend"
-.\.venv\Scripts\python.exe -m app.manage_admin
-```
-
-Nhập email của tài khoản khi được hỏi, rồi đăng xuất/đăng nhập lại. Có thể truyền
-email làm đối số: `python -m app.manage_admin owner@example.com` khi đã kích hoạt venv.
-Lệnh dùng cùng `DATABASE_URL` với backend (mặc định `smartexam.db` trong thư mục chạy),
-chỉ đổi role của tài khoản được tìm thấy, không tạo tài khoản hay đổi mật khẩu.
-Email không hợp lệ/không tồn tại hoặc CSDL chưa migration sẽ báo lỗi và không cấp quyền.
-Không có endpoint HTTP cho lệnh quản trị CSDL này.
-
-Trên Windows có thể mở `CAP_QUYEN_ADMIN.bat` để thực hiện cùng thao tác.
-`CHAY_BACKEND.bat` dùng trực tiếp `.venv\Scripts\python.exe`, nên không cần `python`
-hoặc `py` trên PATH khi venv đã được tạo và cài đủ `requirements.txt`.
-
-Nếu các trang cũ báo `Not Found`, cập nhật repo, khởi động lại backend và tải lại
-trình duyệt bằng Ctrl+F5. Môn học/hồ sơ tải độc lập; các trang đề thi, lịch sử và
-thống kê thông báo chưa sẵn sàng khi backend chưa cung cấp các chức năng tương ứng.
+Admin dùng `GET /admin/questions` để xem danh sách, `POST /admin/questions` để tạo câu hỏi,
+và `PATCH /admin/questions/{id}` để cập nhật từng trường. PATCH chỉ thay đổi các trường được gửi;
+nếu gửi `options`, hãy gửi toàn bộ danh sách phương án. Mỗi câu có 2–6 phương án và đúng một
+đáp án đúng. Khi sửa phương án, gửi lại `id` để giữ định danh; ID mới sẽ được tạo nếu bỏ trống.
+Các câu hỏi thuộc đề đã xuất bản bị khóa cho đến khi đề được lưu trữ.
 
 ## Login and JWT
 
@@ -342,7 +266,6 @@ Kiểm thử frontend tại thư mục `SmartExam_Frontend`:
 ```bash
 node tests/domain.mjs
 node tests/registration.mjs
-node tests/questions.mjs
 ```
 
 ## Cấu trúc
@@ -355,12 +278,8 @@ app/
   schemas.py           # Request/response công khai
   routes.py            # POST /auth/register
   admin.py             # admin_router + require_admin (401/403 cho /admin/*)
-<<<<<<< HEAD
-  questions.py         # GET/POST/PATCH ngân hàng câu hỏi (US-06 / T05F917)
-=======
   question_lock.py     # Chặn sửa/xóa câu hỏi nằm trong đề đã xuất bản (409)
   attempts.py          # PUT /attempts/{id}/answers/{question_id}, chấm khi hết giờ
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
   security.py          # Argon2id
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration

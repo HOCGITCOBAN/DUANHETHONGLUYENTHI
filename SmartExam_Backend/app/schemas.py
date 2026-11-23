@@ -90,17 +90,6 @@ class SubjectResponse(BaseModel):
     is_active: bool
 
 
-<<<<<<< HEAD
-Difficulty = Literal["easy", "medium", "hard"]
-
-
-class QuestionOptionWrite(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-
-    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=36)
-    text: str = Field(min_length=1, max_length=1000)
-    is_correct: StrictBool = False
-=======
 class ExamWrite(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -157,7 +146,14 @@ class OptionResponse(BaseModel):
     id: str
     text: str
     is_correct: bool
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
+
+
+class QuestionOptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=1000)
+    is_correct: StrictBool = False
 
 
 class QuestionWrite(BaseModel):
@@ -165,7 +161,6 @@ class QuestionWrite(BaseModel):
 
     subject_id: str = Field(min_length=1, max_length=36)
     text: str = Field(min_length=1, max_length=2000)
-<<<<<<< HEAD
     explanation: str = Field(default="", max_length=5000)
     difficulty: Difficulty
     is_active: StrictBool = True
@@ -181,7 +176,9 @@ class QuestionWrite(BaseModel):
         return options
 
 
-class QuestionPatch(QuestionWrite):
+class QuestionPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     subject_id: str | None = Field(default=None, min_length=1, max_length=36)
     text: str | None = Field(default=None, min_length=1, max_length=2000)
     explanation: str | None = Field(default=None, max_length=5000)
@@ -199,25 +196,15 @@ class QuestionPatch(QuestionWrite):
                 raise ValueError("Trường cập nhật không được là null.")
         return value
 
-
-class QuestionOptionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    text: str
-    is_correct: bool
-=======
-    options: list[OptionWrite] = Field(min_length=2, max_length=6)
-    explanation: str | None = Field(default=None, max_length=2000)
-    difficulty: Difficulty = "medium"
-    is_active: bool = True
-
-    @model_validator(mode="after")
-    def require_exactly_one_correct_option(self) -> "QuestionWrite":
-        if sum(option.is_correct for option in self.options) != 1:
-            raise ValueError("Câu hỏi phải có đúng một phương án đúng.")
-        return self
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
+    @field_validator("options")
+    @classmethod
+    def validate_options(cls, options: list[QuestionOptionWrite] | None):
+        if options is not None:
+            if sum(option.is_correct for option in options) != 1:
+                raise ValueError("Câu hỏi phải có đúng một đáp án đúng.")
+            if len({option.id for option in options}) != len(options):
+                raise ValueError("Mã phương án không được trùng trong cùng câu hỏi.")
+        return options
 
 
 class QuestionResponse(BaseModel):
@@ -226,12 +213,6 @@ class QuestionResponse(BaseModel):
     id: str
     subject_id: str
     text: str
-<<<<<<< HEAD
-    explanation: str
-    difficulty: Difficulty
-    is_active: bool
-    options: list[QuestionOptionResponse]
-=======
     options: list[OptionResponse]
     explanation: str | None
     difficulty: Difficulty
@@ -247,4 +228,3 @@ class AnswerWrite(BaseModel):
 class AnswerResponse(BaseModel):
     question_id: str
     option_id: str
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb

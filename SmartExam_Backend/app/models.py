@@ -2,18 +2,6 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
-<<<<<<< HEAD
-    Boolean,
-    CheckConstraint,
-    DateTime,
-    ForeignKey,
-    String,
-    UniqueConstraint,
-    func,
-)
-from sqlalchemy import (
-    text as sql_text,
-=======
     JSON,
     Boolean,
     CheckConstraint,
@@ -29,7 +17,6 @@ from sqlalchemy import (
     func,
     text,
     true,
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,7 +35,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(254), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="student", server_default=sql_text("'student'")
+        String(20), nullable=False, default="student", server_default=text("'student'")
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -66,12 +53,10 @@ class Subject(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     slug: Mapped[str] = mapped_column(String(120), nullable=False)
     is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=sql_text("true")
+        Boolean, nullable=False, default=True, server_default=text("true")
     )
 
 
-<<<<<<< HEAD
-=======
 class Exam(Base):
     __tablename__ = "exams"
     __table_args__ = (
@@ -94,7 +79,6 @@ class Exam(Base):
     questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
 
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
 class Question(Base):
     __tablename__ = "questions"
     __table_args__ = (
@@ -102,17 +86,6 @@ class Question(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-<<<<<<< HEAD
-    subject_id: Mapped[str] = mapped_column(ForeignKey("subjects.id"), nullable=False, index=True)
-    text: Mapped[str] = mapped_column(String(2000), nullable=False)
-    explanation: Mapped[str] = mapped_column(String(5000), nullable=False, default="")
-    difficulty: Mapped[str] = mapped_column(String(10), nullable=False)
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=sql_text("true")
-    )
-    options: Mapped[list["QuestionOption"]] = relationship(
-        cascade="all, delete-orphan", order_by="QuestionOption.position"
-=======
     subject_id: Mapped[str] = mapped_column(
         ForeignKey("subjects.id", name="fk_questions_subject_id"), nullable=False
     )
@@ -128,26 +101,11 @@ class Question(Base):
         back_populates="question",
         cascade="all, delete-orphan",
         order_by="QuestionOption.position",
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
     )
 
 
 class QuestionOption(Base):
     __tablename__ = "question_options"
-<<<<<<< HEAD
-    __table_args__ = (
-        UniqueConstraint("question_id", "position", name="uq_question_options_position"),
-        CheckConstraint("position >= 0 AND position < 6", name="ck_question_options_position"),
-    )
-
-    question_id: Mapped[str] = mapped_column(
-        ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True
-    )
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    text: Mapped[str] = mapped_column(String(1000), nullable=False)
-    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    position: Mapped[int] = mapped_column(nullable=False)
-=======
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     question_id: Mapped[str] = mapped_column(
@@ -209,4 +167,3 @@ class AttemptAnswer(Base):
         ForeignKey("question_options.id", name="fk_attempt_answers_option_id"), nullable=False
     )
     answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb

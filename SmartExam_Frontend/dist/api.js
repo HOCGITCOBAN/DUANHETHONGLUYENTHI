@@ -49,11 +49,8 @@ function apiErrorMessage(path,status,data){
       options:'Cần 2–6 phương án không rỗng (tối đa 1000 ký tự mỗi phương án), mã không trùng và đúng một đáp án đúng.',
       is_active:'Trạng thái câu hỏi chưa hợp lệ.',
     };
-    const fields=Array.isArray(data?.detail)
-      ?data.detail.map(error=>Array.isArray(error?.loc)?error.loc[1]:null)
-      :[];
-    return [...new Set(fields.filter(field=>Object.hasOwn(messages,field)).map(field=>messages[field]))]
-      .join(' ')||'Thông tin câu hỏi chưa hợp lệ. Vui lòng kiểm tra lại.';
+    const fields=Array.isArray(data?.detail)?data.detail.map(error=>Array.isArray(error?.loc)?error.loc[1]:null):[];
+    return [...new Set(fields.filter(field=>Object.hasOwn(messages,field)).map(field=>messages[field]))].join(' ')||'Thông tin câu hỏi chưa hợp lệ. Vui lòng kiểm tra lại.';
   }
   if(status===422&&path==='/auth/register'){
     const messages={
@@ -73,24 +70,6 @@ function apiErrorMessage(path,status,data){
   return typeof data?.detail==='string'?data.detail:`Yêu cầu thất bại (${status}).`;
 }
 async function request(path,method='GET',body){
-<<<<<<< HEAD
-  const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),15000);
-  try{
-    const res=await fetch((config.baseUrl||'').replace(/\/$/,'')+path,{method,signal:ctrl.signal,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
-    const data=res.status===204?null:await res.json().catch(()=>null);
-    if(!res.ok){
-      if(res.status===401){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
-      const error=Error(apiErrorMessage(path,res.status,data));
-      error.status=res.status;
-      throw error;
-    }
-    return data;
-  }catch(error){
-    if(error.name==='AbortError')throw Error('Máy chủ phản hồi quá lâu. Vui lòng thử lại.');
-    if(error instanceof TypeError)throw Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối và thử lại.');
-    throw error;
-  }finally{clearTimeout(timeout)}
-=======
   const url=(config.baseUrl||'').replace(/\/$/,'')+path;
   const attempts=method==='GET'?2:1;
   for(let attempt=0;attempt<attempts;attempt++){
@@ -101,7 +80,9 @@ async function request(path,method='GET',body){
       if(!res.ok){
         if(res.status===401){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
         if(attempt+1<attempts&&[502,503,504].includes(res.status))continue;
-        throw Error(apiErrorMessage(path,res.status,data));
+        const error=Error(apiErrorMessage(path,res.status,data));
+        error.status=res.status;
+        throw error;
       }
       return data;
     }catch(error){
@@ -116,7 +97,6 @@ async function request(path,method='GET',body){
       throw error;
     }finally{clearTimeout(timeout)}
   }
->>>>>>> 73d6175c5633f10ecf361df94fa8bf5f132461cb
 }
 export const api={
 async login(email,password){if(API_AUTH){const data=await request('/auth/login','POST',{email,password});token=data.access_token;user=await request('/auth/me');return {user,token}}const u=db.users.find(u=>u.email.toLowerCase()===email.toLowerCase());const valid=u&&(u.password_hash?u.password_hash===await demoPasswordHash(u.email,password):password===(u.role==='admin'?'admin123':'demo123'));if(!valid)fail('Email hoặc mật khẩu chưa đúng.');user=u;return {user:clone(u),token:'demo'}},
@@ -140,26 +120,10 @@ async restore(session){token=session.token;if(API_AUTH){user=await request('/aut
 logout(){token=null;user=null;sessionStorage.removeItem('smartexam.session')},
 async subjects(all=false){if(!LOCAL_DATA)return request(all?'/admin/subjects':'/subjects');requireUser();if(all)admin();return clone(db.subjects.filter(s=>all||s.is_active))},
 async saveSubject(data){if(!LOCAL_DATA){const {id,...payload}=data;return request('/admin/subjects'+(id?'/'+encodeURIComponent(id):''),id?'PATCH':'POST',payload)}admin();if(db.subjects.some(s=>s.slug===data.slug&&s.id!==data.id))fail('Slug môn học đã tồn tại.');const old=db.subjects.find(s=>s.id===data.id);old?Object.assign(old,data):db.subjects.push({...data,id:uid()});save()},
-async questions(filters={}){
-  const query=new URLSearchParams();
-  for(const key of ['subject_id','difficulty','is_active']){
-    if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,filters[key]);
-  }
-  if(!LOCAL_DATA)return request('/admin/questions'+(query.size?'?'+query:''));
-  admin();return clone(db.questions.filter(q=>[...query].every(([key,value])=>String(q[key])===value)));
-},
+async questions(filters={}){const query=new URLSearchParams();for(const key of ['subject_id','difficulty','is_active'])if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,filters[key]);if(!LOCAL_DATA)return request('/admin/questions'+(query.size?'?'+query:''));admin();return clone(db.questions.filter(q=>[...query].every(([key,value])=>String(q[key])===value)))},
 async saveQuestion(data){
-  if(!LOCAL_DATA){
-    const payload={};
-    for(const key of ['subject_id','text','explanation','difficulty','is_active']){
-      if(Object.hasOwn(data,key))payload[key]=data[key];
-    }
-    if(Object.hasOwn(data,'options'))payload.options=data.options.map(({id,text,is_correct})=>({...(id?{id}:{}),text,is_correct}));
-    return request('/admin/questions'+(data.id?'/'+encodeURIComponent(data.id):''),data.id?'PATCH':'POST',payload);
-  }
-  admin();if(data.id&&db.exams.some(e=>e.status==='published'&&e.questions.some(q=>q.question_id===data.id)))fail('Câu hỏi thuộc đề đã xuất bản, không thể sửa trực tiếp.');
-  if(data.options.length<2||data.options.length>6||data.options.filter(o=>o.is_correct).length!==1)fail('Cần 2–6 phương án và đúng một đáp án đúng.');
-  const old=db.questions.find(q=>q.id===data.id);old?Object.assign(old,data):db.questions.push({...data,id:uid()});save();
+  if(!LOCAL_DATA){const payload={};for(const key of ['subject_id','text','explanation','difficulty','is_active'])if(Object.hasOwn(data,key))payload[key]=data[key];if(Object.hasOwn(data,'options'))payload.options=data.options.map(({id,text,is_correct})=>({... (id?{id}:{}),text,is_correct}));return request('/admin/questions'+(data.id?'/'+encodeURIComponent(data.id):''),data.id?'PATCH':'POST',payload)}
+  admin();if(data.id&&db.exams.some(e=>e.status==='published'&&e.questions.some(q=>q.question_id===data.id)))fail('Câu hỏi thuộc đề đã xuất bản, không thể sửa trực tiếp.');if(data.options&&(data.options.length<2||data.options.length>6||data.options.filter(o=>o.is_correct).length!==1))fail('Cần 2–6 phương án và đúng một đáp án đúng.');const old=db.questions.find(q=>q.id===data.id);old?Object.assign(old,data):db.questions.push({...data,id:uid()});save()
 },
 async exams(all=false){if(!LOCAL_DATA)return request(all?'/admin/exams':'/exams');requireUser();if(all)admin();return clone(db.exams.filter(e=>all||(e.status==='published'&&db.subjects.some(s=>s.id===e.subject_id&&s.is_active))).map(e=>({...e,question_count:e.questions.length,used_attempts:db.attempts.filter(a=>a.user_id===user.id&&a.exam_id===e.id).length})))},
 async saveExam(data){if(!LOCAL_DATA){const {questions,...meta}=data;const e=await request('/admin/exams'+(data.id?'/'+data.id:''),data.id?'PATCH':'POST',meta);return request(`/admin/exams/${data.id||e.id}/questions`,'PUT',{questions})}admin();const old=db.exams.find(e=>e.id===data.id);if(old&&old.status!=='draft')fail('Chỉ chỉnh sửa được đề nháp.');if(new Set(data.questions.map(q=>q.question_id)).size!==data.questions.length)fail('Câu hỏi bị trùng.');old?Object.assign(old,data):db.exams.push({...data,id:uid(),status:'draft'});save()},
