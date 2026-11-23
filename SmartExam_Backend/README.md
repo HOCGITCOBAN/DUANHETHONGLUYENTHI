@@ -1,5 +1,13 @@
 # SmartExam Backend — US-01 / T05F912
 
+## US-06 — Quản lý ngân hàng câu hỏi
+
+Admin dùng `GET /admin/questions` để xem danh sách, `POST /admin/questions` để tạo câu hỏi,
+và `PATCH /admin/questions/{id}` để cập nhật từng trường. PATCH chỉ thay đổi các trường được gửi;
+nếu gửi `options`, hãy gửi toàn bộ danh sách phương án. Mỗi câu có 2–6 phương án và đúng một
+đáp án đúng. Khi sửa phương án, gửi lại `id` để giữ định danh; ID mới sẽ được tạo nếu bỏ trống.
+Các câu hỏi thuộc đề đã xuất bản bị khóa cho đến khi đề được lưu trữ.
+
 ## Login and JWT
 
 `POST /auth/login` accepts `{ "email": "student@example.com", "password": "..." }` and

@@ -176,7 +176,7 @@ def test_question_needs_an_existing_subject(env):
     response = env.client.post(
         "/admin/questions", headers=env.admin, json=question_body("missing-subject")
     )
-    assert response.status_code == 422
+    assert response.status_code == 404
     assert response.json() == {"detail": "Môn học không tồn tại."}
 
 
