@@ -276,3 +276,35 @@ app/
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration
 ```
+
+
+## Seed dữ liệu Demo (TK-03)
+
+Sau khi cài thư viện và chạy migration, tạo dữ liệu mẫu phục vụ demo/buổi bảo vệ:
+
+```bash
+python -m alembic upgrade head
+python seed_demo.py
+```
+
+Script `seed_demo.py` có thể chạy nhiều lần mà không tạo trùng môn học, câu hỏi,
+đề thi hoặc tài khoản demo. Tài khoản đã tồn tại sẽ giữ nguyên mật khẩu hiện tại;
+role của hai email demo được đặt theo mục đích demo.
+
+**Tài khoản mẫu:**
+
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| Admin | `admin@smartexam.local` | `DemoAdmin123!` |
+| Student | `student@smartexam.local` | `DemoStudent123!` |
+
+**Dữ liệu được tạo:**
+- 2 môn học: Toán học, Tin học.
+- 6 câu hỏi trắc nghiệm, mỗi câu có 4 phương án và đúng 1 đáp án.
+- 1 đề Toán học ở trạng thái `published`.
+- 1 đề Tin học ở trạng thái `draft`.
+- Mỗi đề có 3 câu, 10 điểm/câu, thời gian 30 phút, điểm đạt 60.
+
+Script dùng `DATABASE_URL` hiện tại của ứng dụng. Nếu không đặt biến này,
+dữ liệu được ghi vào SQLite mặc định `smartexam.db` trong thư mục chạy lệnh.
+Chỉ dùng các mật khẩu mẫu trên cho môi trường demo/local, không dùng khi triển khai thật.
