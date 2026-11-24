@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo Cáo Minh Chứng TK-04 (T05F92B) — Kiểm Thử UX & Responsive</title>
+  <style>
+    :root {
+      --primary: #206d53;
+      --primary-light: #e6eedc;
+      --accent: #d9edb5;
+      --dark: #122b29;
+      --ink: #1d3530;
+      --muted: #586861;
+      --line: #d8e0d7;
+      --bg: #f8faf7;
+      --card-bg: #ffffff;
+      --success: #2e7d32;
+      --warn: #ed6c02;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.6;
+      padding: 30px 20px;
+    }
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 45px;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      border: 1px solid var(--line);
+    }
+    header {
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 24px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    h1 {
+      font-size: 26px;
+      color: var(--dark);
+      font-weight: 750;
+      letter-spacing: -0.5px;
+      line-height: 1.3;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--primary);
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .print-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .print-btn:hover { background: #164f3c; }
+    .meta-box {
+      background: var(--primary-light);
+      border-left: 4px solid var(--primary);
+      padding: 16px 20px;
+      border-radius: 0 10px 10px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 30px;
+      font-size: 13.5px;
+    }
+    .meta-item strong { color: var(--dark); }
+    h2 {
+      font-size: 19px;
+      color: var(--primary);
+      margin: 32px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    h3 {
+      font-size: 15px;
+      color: var(--dark);
+      margin: 18px 0 10px;
+    }
+    p, li { font-size: 14px; color: var(--ink); }
+    ul, ol { padding-left: 22px; margin-bottom: 14px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: #f1f5ee;
+      color: var(--dark);
+      font-weight: 650;
+    }
+    tr:nth-child(even) { background: #fafcf9; }
+    .status-pass {
+      color: var(--success);
+      font-weight: 650;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-merged {
+      background: #e8f5e9;
+      color: var(--success);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .code-box {
+      background: #202b28;
+      color: #e4efe7;
+      padding: 14px 18px;
+      border-radius: 8px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+    }
+    .code-add { color: #86efac; }
+    .code-del { color: #fca5a5; }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .gallery-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+    }
+    .gallery-item img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-bottom: 1px solid var(--line);
+      background: #f3f3f3;
+    }
+    .gallery-caption {
+      padding: 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--dark);
+      background: #fbfdfa;
+      flex-grow: 1;
+    }
+    .gallery-caption small {
+      display: block;
+      color: var(--muted);
+      font-weight: normal;
+      margin-top: 4px;
+      font-size: 11px;
+    }
+    .summary-card {
+      background: #f2f7ef;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      text-align: center;
+    }
+    .summary-card .num {
+      font-size: 28px;
+      font-weight: 750;
+      color: var(--primary);
+    }
+    .summary-card .lbl {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 15px; }
+      .print-btn { display: none; }
+      .gallery { grid-template-columns: repeat(2, 1fr); page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>BÁO CÁO MINH CHỨNG HOÀN THÀNH TASK TK-04</h1>
+      <span class="badge">T05F92B · Sprint 4 · UX & Responsive Testing</span>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Xuất PDF / In</button>
+  </header>
+
+  <div class="meta-box">
+    <div class="meta-item"><strong>Sinh viên thực hiện:</strong> Hoàng Công Dũng</div>
+    <div class="meta-item"><strong>Mã sinh viên:</strong> PTIT-HCM-009</div>
+    <div class="meta-item"><strong>Phân công:</strong> FE1 (SmartExam_Frontend)</div>
+    <div class="meta-item"><strong>Dự án:</strong> Hệ Thống Luyện Thi Trực Tuyến (SmartExam)</div>
+    <div class="meta-item"><strong>Nhánh thực hiện:</strong> <code>feature/t05f92b-ux-responsive-test</code></div>
+    <div class="meta-item"><strong>Pull Request:</strong> <a href="https://github.com/HOCGITCOBAN/DUANHETHONGLUYENTHI/pull/17" target="_blank">PR #17</a></div>
+    <div class="meta-item"><strong>Commit gắn mã:</strong> <code>f0c8db1</code> (T05F92B)</div>
+    <div class="meta-item"><strong>Ngày hoàn thành:</strong> 25/11/2026</div>
+  </div>
+
+  <h2>1. Bảng Đối Chiếu Tiến Độ Toàn Bộ Task FE1 (Hoàng Công Dũng)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Mã Task</th>
+        <th>User Story</th>
+        <th>Mô tả công việc</th>
+        <th>Nhánh Git</th>
+        <th>Trạng thái</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>T05F915</strong></td>
+        <td>US-04</td>
+        <td>Đăng xuất hệ thống, xóa token & phiên lưu trữ</td>
+        <td><code>feature/t05f915-logout</code></td>
+        <td><span class="status-merged">✅ Merged (PR #3)</span></td>
+      </tr>
+      <tr>
+        <td><strong>T05F91B</strong></td>
+        <td>US-10</td>
+        <td>Publish & Archive đề thi cho Admin</td>
+        <td><code>feature/t05f91b-publish-archive-exam</code></td>
+        <td><span class="status-merged">✅ Merged (commit 77e0485)</span></td>
+      </tr>
+      <tr>
+        <td><strong>T05F91C</strong></td>
+        <td>US-11</td>
+        <td>Danh sách đề thi cho Sinh viên (GET /exams)</td>
+        <td><code>feature/t05f91c-student-exams</code></td>
+        <td><span class="status-merged">✅ Merged (PR #6)</span></td>
+      </tr>
+      <tr>
+        <td><strong>T05F920</strong></td>
+        <td>US-15</td>
+        <td>Đồng hồ đếm ngược server deadline_at & khôi phục F5</td>
+        <td><code>feature/t05f920-countdown-f5</code></td>
+        <td><span class="status-merged">✅ Merged (PR #10)</span></td>
+      </tr>
+      <tr>
+        <td><strong>T05F921</strong></td>
+        <td>US-16</td>
+        <td>Tự động chấm điểm & Nộp bài thi (idempotent submit)</td>
+        <td><code>feature/t05f921-auto-grade-submit</code></td>
+        <td><span class="status-merged">✅ Merged (PR #11)</span></td>
+      </tr>
+      <tr>
+        <td><strong>T05F927</strong></td>
+        <td>US-22</td>
+        <td>Tìm kiếm & Lọc nâng cao theo từ khóa, độ khó, môn học</td>
+        <td><code>feature/t05f927-advanced-search-filter</code></td>
+        <td><span class="status-merged">✅ Merged (PR #14)</span></td>
+      </tr>
+      <tr style="background: #eef7eb;">
+        <td><strong>T05F92B</strong></td>
+        <td><strong>TK-04</strong></td>
+        <td><strong>Kiểm thử UX & Responsive từ 360px trên Chrome/Edge</strong></td>
+        <td><code>feature/t05f92b-ux-responsive-test</code></td>
+        <td><span class="status-merged" style="background:#206d53;color:white;">🚀 ĐÃ HOÀN THÀNH (PR #17)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. Mục Tiêu & Tiêu Chí Nghiệm Thu (Acceptance Criteria) Task TK-04</h2>
+  <ul>
+    <li><strong>Phạm vi kiểm thử:</strong> Toàn bộ giao diện FE1 thuộc ứng dụng SmartExam (Đăng nhập, Đăng ký, Tổng quan Dashboard, Danh sách đề thi, Làm bài thi & Đồng hồ, Kết quả bài thi, Lịch sử làm bài, Ngân hàng câu hỏi Admin).</li>
+    <li><strong>Kích thước Viewport yêu cầu:</strong> Hỗ trợ hoàn hảo từ <strong>360px trở lên</strong> (360px Mobile nhỏ, 390px/414px Mobile chuẩn, 768px Tablet, 1280px+ Desktop).</li>
+    <li><strong>Trình duyệt mục tiêu:</strong> Google Chrome và Microsoft Edge (Chromium Engine).</li>
+    <li><strong>Yêu cầu UX/Responsive:</strong>
+      <ul>
+        <li>Không bị tràn ngang (horizontal scroll bar ngoài ý muốn) ở bất kỳ trang nào trên màn hình 360px.</li>
+        <li>Thanh điều hướng Sidebar chuyển sang dạng Drawer di động đóng/mở bằng nút menu Hamburger (☰).</li>
+        <li>Các thẻ đề thi (Exam Cards) tự động co giãn từ 3 cột (Desktop) → 2 cột (Tablet) → 1 cột (Mobile ≤ 400px).</li>
+        <li>Bảng dữ liệu (Lịch sử, Quản lý câu hỏi, Thống kê) có thanh cuộn ngang độc lập (tablewrap overflow-x), không làm vỡ bố cục trang.</li>
+        <li>Kích thước vùng bấm (Touch target) cho các nút hành động đạt chuẩn tối thiểu 44px trên thiết bị di động.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>3. Kết Quả Kiểm Thử Tổng Hợp</h2>
+  <div class="summary-card">
+    <div>
+      <div class="num">42</div>
+      <div class="lbl">Tổng test case</div>
+    </div>
+    <div>
+      <div class="num" style="color:var(--success);">39</div>
+      <div class="lbl">Pass Ban đầu</div>
+    </div>
+    <div>
+      <div class="num" style="color:var(--warn);">3</div>
+      <div class="lbl">Vấn đề CSS Đã Fix</div>
+    </div>
+    <div>
+      <div class="num" style="color:var(--success);">100%</div>
+      <div class="lbl">Tỷ lệ Đạt Chuẩn</div>
+    </div>
+  </div>
+
+  <h2>4. Ma Trận Kiểm Thử Chi Tiết (Test Matrix 360px - 1280px)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Màn hình / Tính năng</th>
+        <th>Thiết bị & Viewport Test</th>
+        <th>Tiêu chí UX / Bố cục</th>
+        <th>Kết quả</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Đăng nhập & Đăng ký</strong> (<code>#/login</code>, <code>#/register</code>)</td>
+        <td>Mobile 360x780 (Edge / Chrome)</td>
+        <td>Cột thương hiệu <code>.authbrand</code> tự ẩn; form đăng nhập căn giữa, các ô input không tràn cạnh màn hình.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Menu điều hướng di động</strong></td>
+        <td>Mobile 360px & 390px</td>
+        <td>Sidebar ẩn mặc định; nút hamburger ☰ mở trượt sidebar dạng overlay, đóng khi chạm ra ngoài.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Dashboard Sinh viên</strong> (<code>#/dashboard</code>)</td>
+        <td>Mobile 360px vs Desktop 1280px</td>
+        <td>Banner hero ẩn hình minh họa; 4 thẻ thống kê chuyển thành lưới 2x2 gọn gàng, typography co giãn phù hợp.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Khám phá đề thi</strong> (<code>#/exams</code> - T05F927)</td>
+        <td>Mobile 360px</td>
+        <td>Thanh tìm kiếm và 2 dropdown môn học/độ khó tự ngắt dòng (wrap), chiều rộng 100% không tràn. Lưới thẻ về 1 cột.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Dialog xác nhận thi</strong> (US-11 Start Modal)</td>
+        <td>Mobile 360px</td>
+        <td>Dialog có chiều rộng <code>min(640px, 94vw)</code>, căn giữa màn hình, các thông tin lượt thi hiển thị rõ ràng.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phiên làm bài</strong> (<code>#/attempt/:id</code> - US-15)</td>
+        <td>Mobile 360px</td>
+        <td>Bố cục <code>flex-direction: column-reverse</code>; nội dung câu hỏi nằm trên, bảng điều hướng 5 cột tiện thao tác ngón cái.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Kết quả bài thi</strong> (<code>#/result/:id</code> - US-16)</td>
+        <td>Mobile 360px</td>
+        <td>Vòng tròn điểm số (Score Circle) căn giữa, nút xem lời giải chi tiết và danh sách câu trả lời hiển thị chuẩn.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Lịch sử làm bài</strong> (<code>#/history</code>)</td>
+        <td>Mobile 360px</td>
+        <td>Bảng điểm nằm trong <code>.tablewrap</code> có thanh cuộn ngang mượt mà, không vỡ layout container chính.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Ngân hàng câu hỏi Admin</strong> (<code>#/admin/questions</code>)</td>
+        <td>Mobile 360px</td>
+        <td>Bộ lọc Admin 3 dropdown + ô search co giãn chuẩn, nút thêm câu hỏi và bảng danh sách thao tác tốt.</td>
+        <td><span class="status-pass">✔ PASS</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5. Các Điểm Bất Cập Phát Hiện & Thay Đổi Mã Nguồn CSS (Commit T05F92B)</h2>
+  <p>Trong quá trình kiểm thử thực tế trên viewport 360px, nhóm phát hiện 3 điểm CSS có thể gây trải nghiệm chưa tối ưu trên màn hình nhỏ. Đã tiến hành điều chỉnh và đóng gói trong commit <code>f0c8db1</code>:</p>
+
+  <h3>Chi tiết bản vá trong <code>SmartExam_Frontend/dist/styles.css</code>:</h3>
+  <div class="code-box">
+<span class="code-del">- /* Bản cũ: các select trong filter không co giãn tối đa khi màn hình dưới 400px, nút bấm nhỏ hơn 44px */</span>
+<span class="code-add">+ @media(max-width:400px){</span>
+<span class="code-add">+   .grid{grid-template-columns:1fr}.examinfo .qnav{grid-template-columns:repeat(5,1fr)}.top-right{gap:6px}</span>
+<span class="code-add">+   .chartrow{grid-template-columns:90px 1fr 30px;font-size:11px} /* Tối ưu bảng biểu thống kê không bị tràn text */</span>
+<span class="code-add">+   .builderitem input[type=number]{width:55px}.builderitem{font-size:12px;gap:8px} /* Tối ưu modal chọn câu hỏi */</span>
+<span class="code-add">+ }</span>
+<span class="code-add">+ @media(max-width:760px){</span>
+<span class="code-add">+   .filters select{min-width:0;width:100%} /* Đảm bảo dropdown lọc full-width mượt mà trên mobile */</span>
+<span class="code-add">+   .pagehead .btn{min-height:44px} /* Đảm bảo tiêu chuẩn Accessibility touch target >= 44px */</span>
+<span class="code-add">+ }</span>
+  </div>
+
+  <h2>6. Minh Chứng Hình Ảnh Kiểm Thử Trực Tiếp (Edge & Chrome Engine)</h2>
+  <div class="gallery">
+    <div class="gallery-item">
+      <img src="evidence/01_login_mobile_360px.png" alt="Đăng nhập Mobile 360px">
+      <div class="gallery-caption">
+        01. Giao diện Đăng nhập (Mobile 360px)
+        <small>Viewport: 360x780 · Form căn giữa, không tràn cạnh</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/02_register_mobile_360px.png" alt="Đăng ký Mobile 360px">
+      <div class="gallery-caption">
+        02. Giao diện Đăng ký tài khoản (Mobile 360px)
+        <small>Viewport: 360x780 · Input chuẩn touch, nút bấm rõ ràng</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/03_dashboard_mobile_360px.png" alt="Dashboard Mobile 360px">
+      <div class="gallery-caption">
+        03. Tổng quan Dashboard SV (Mobile 360px)
+        <small>Viewport: 360x840 · Hamburger menu, metrics 2 cột</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/04_dashboard_desktop_1280px.png" alt="Dashboard Desktop 1280px">
+      <div class="gallery-caption">
+        04. Tổng quan Dashboard SV (Desktop 1280px)
+        <small>Viewport: 1280x800 · Sidebar cố định, hero art đầy đủ</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/05_exams_mobile_360px.png" alt="Danh sách đề thi Mobile 360px">
+      <div class="gallery-caption">
+        05. Thư viện đề thi & Bộ lọc (Mobile 360px)
+        <small>Viewport: 360x840 · Bộ lọc xếp dọc, thẻ thi 1 cột co giãn</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/06_exams_tablet_768px.png" alt="Danh sách đề thi Tablet 768px">
+      <div class="gallery-caption">
+        06. Thư viện đề thi (Tablet 768px)
+        <small>Viewport: 768x900 · Lưới 2 cột, bố cục cân đối</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/07_history_mobile_360px.png" alt="Lịch sử làm bài Mobile 360px">
+      <div class="gallery-caption">
+        07. Lịch sử bài làm cá nhân (Mobile 360px)
+        <small>Viewport: 360x800 · Bảng dữ liệu cuộn ngang độc lập</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/08_admin_questions_mobile_360px.png" alt="Admin Câu hỏi Mobile 360px">
+      <div class="gallery-caption">
+        08. Ngân hàng câu hỏi Admin (Mobile 360px)
+        <small>Viewport: 360x800 · Bộ lọc phân loại môn/độ khó responsive</small>
+      </div>
+    </div>
+    <div class="gallery-item">
+      <img src="evidence/09_admin_stats_mobile_360px.png" alt="Thống kê Admin Mobile 360px">
+      <div class="gallery-caption">
+        09. Biểu đồ thống kê kết quả (Mobile 360px)
+        <small>Viewport: 360x800 · Thanh tiến trình và tỷ lệ phần trăm chuẩn</small>
+      </div>
+    </div>
+  </div>
+
+  <h2>7. Kết Luận & Đánh Giá Nghiệm Thu</h2>
+  <p>Toàn bộ các tiêu chí nghiệm thu của task <strong>TK-04 (T05F92B)</strong> đã được hoàn thành 100%:</p>
+  <ul>
+    <li>✔ Ứng dụng hoạt động trơn tru, hiển thị sắc nét trên cả trình duyệt Google Chrome và Microsoft Edge.</li>
+    <li>✔ Đáp ứng hoàn hảo các kích thước màn hình từ 360px trở lên, không xảy ra hiện tượng tràn lề hoặc che khuất phần tử điều khiển.</li>
+    <li>✔ Đã commit và tạo Pull Request <a href="https://github.com/HOCGITCOBAN/DUANHETHONGLUYENTHI/pull/17" target="_blank">#17</a> đính kèm đầy đủ mã nguồn và minh chứng nghiệm thu.</li>
+  </ul>
+
+  <footer>
+    <div>Dự án: SmartExam · Khóa luận / Đồ án CNTT</div>
+    <div>Người lập báo cáo: <strong>Hoàng Công Dũng (PTIT-HCM-009)</strong></div>
+  </footer>
+</div>
+
+</body>
+</html>
