@@ -1,5 +1,6 @@
 from typing import Literal
 from unicodedata import normalize
+from uuid import uuid4
 
 from pydantic import (
     AliasChoices,
@@ -8,7 +9,9 @@ from pydantic import (
     EmailStr,
     Field,
     SecretStr,
+    StrictBool,
     field_validator,
+    model_validator,
 )
 
 
@@ -37,6 +40,8 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def reject_blank_password(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value().encode("utf-8")) > 72:
+            raise ValueError("Password cannot exceed 72 UTF-8 bytes with bcrypt.")
         if not value.get_secret_value().strip():
             raise ValueError("Mật khẩu không được chỉ chứa khoảng trắng.")
         return value
@@ -66,3 +71,160 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
+
+
+class SubjectWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=100)
+    slug: str = Field(min_length=1, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    is_active: bool = True
+
+
+class SubjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    slug: str
+    is_active: bool
+
+
+class ExamWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1, max_length=150)
+    description: str = Field(default="", max_length=5000)
+    subject_id: str = Field(min_length=1, max_length=36)
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    duration_minutes: int = Field(default=30, ge=1, le=300)
+    pass_score: float = Field(default=70, ge=0, le=100)
+    max_attempts: int = Field(default=3, ge=1, le=100)
+
+
+class ExamQuestionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str = Field(min_length=1, max_length=36)
+    points: float = Field(gt=0, le=100)
+
+
+class ExamQuestionsWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    questions: list[ExamQuestionWrite] = Field(max_length=200)
+
+
+class ExamResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    description: str
+    subject_id: str
+    difficulty: str
+    duration_minutes: int
+    pass_score: float
+    max_attempts: int
+    status: str
+    questions: list[dict]
+
+
+Difficulty = Literal["easy", "medium", "hard"]
+
+
+class OptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=500)
+    is_correct: bool = False
+
+
+class OptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    text: str
+    is_correct: bool
+
+
+class QuestionOptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=1000)
+    is_correct: StrictBool = False
+
+
+class QuestionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    subject_id: str = Field(min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=2000)
+    explanation: str = Field(default="", max_length=5000)
+    difficulty: Difficulty
+    is_active: StrictBool = True
+    options: list[QuestionOptionWrite] = Field(min_length=2, max_length=6)
+
+    @field_validator("options")
+    @classmethod
+    def validate_options(cls, options: list[QuestionOptionWrite]) -> list[QuestionOptionWrite]:
+        if sum(option.is_correct for option in options) != 1:
+            raise ValueError("Câu hỏi phải có đúng một đáp án đúng.")
+        if len({option.id for option in options}) != len(options):
+            raise ValueError("Mã phương án không được trùng trong cùng câu hỏi.")
+        return options
+
+
+class QuestionPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    subject_id: str | None = Field(default=None, min_length=1, max_length=36)
+    text: str | None = Field(default=None, min_length=1, max_length=2000)
+    explanation: str | None = Field(default=None, max_length=5000)
+    difficulty: Difficulty | None = None
+    is_active: StrictBool | None = None
+    options: list[QuestionOptionWrite] | None = Field(default=None, min_length=2, max_length=6)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_empty_or_null_fields(cls, value: object) -> object:
+        if isinstance(value, dict):
+            if not value:
+                raise ValueError("Cần cung cấp ít nhất một trường để cập nhật.")
+            if any(field is None for field in value.values()):
+                raise ValueError("Trường cập nhật không được là null.")
+        return value
+
+    @field_validator("options")
+    @classmethod
+    def validate_options(cls, options: list[QuestionOptionWrite] | None):
+        if options is not None:
+            if sum(option.is_correct for option in options) != 1:
+                raise ValueError("Câu hỏi phải có đúng một đáp án đúng.")
+            if len({option.id for option in options}) != len(options):
+                raise ValueError("Mã phương án không được trùng trong cùng câu hỏi.")
+        return options
+
+
+class QuestionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    subject_id: str
+    text: str
+    options: list[OptionResponse]
+    explanation: str | None
+    difficulty: Difficulty
+    is_active: bool
+
+
+class AnswerWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    option_id: str = Field(min_length=1, max_length=36)
+
+
+class AnswerResponse(BaseModel):
+    question_id: str
+    option_id: str

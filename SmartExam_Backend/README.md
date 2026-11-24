@@ -1,5 +1,13 @@
 # SmartExam Backend — US-01 / T05F912
 
+## US-06 — Quản lý ngân hàng câu hỏi
+
+Admin dùng `GET /admin/questions` để xem danh sách, `POST /admin/questions` để tạo câu hỏi,
+và `PATCH /admin/questions/{id}` để cập nhật từng trường. PATCH chỉ thay đổi các trường được gửi;
+nếu gửi `options`, hãy gửi toàn bộ danh sách phương án. Mỗi câu có 2–6 phương án và đúng một
+đáp án đúng. Khi sửa phương án, gửi lại `id` để giữ định danh; ID mới sẽ được tạo nếu bỏ trống.
+Các câu hỏi thuộc đề đã xuất bản bị khóa cho đến khi đề được lưu trữ.
+
 ## Login and JWT
 
 `POST /auth/login` accepts `{ "email": "student@example.com", "password": "..." }` and
@@ -42,6 +50,78 @@ def list_subjects(): ...
 `POST /auth/register` tạo tài khoản sinh viên từ họ tên, email và mật khẩu.
 Backend băm mật khẩu bằng Argon2id, từ chối email đã tồn tại và gán quyền `student`.
 Tài khoản được lưu bằng SQLAlchemy trong SQLite; Alembic quản lý migration bảng `users`.
+
+## Câu hỏi, gán câu hỏi vào đề và bảo vệ đề đã xuất bản (US-07, US-09)
+
+**Ngân hàng câu hỏi** (`/admin/questions`, chỉ admin): `GET` liệt kê, `POST` tạo, `PATCH /{id}`
+sửa, `DELETE /{id}` xóa. Một câu có 2 đến 6 phương án và đúng một phương án đúng; `subject_id`
+phải tồn tại; `difficulty` là `easy`, `medium` hoặc `hard`. Phương án chỉ được sửa cùng câu hỏi.
+
+**Gán câu hỏi vào đề** (`PUT /admin/exams/{id}/questions`): body
+`{"questions": [{"question_id": "...", "points": 2}, ...]}`. Mỗi lần gọi là **thay toàn bộ** danh sách
+của đề.
+
+- Thứ tự của mảng chính là thứ tự câu trong đề; muốn đổi thứ tự thì gửi lại mảng đã sắp xếp.
+- `points` là số lớn hơn 0 và không quá 100, đặt riêng cho từng câu. Không nhận trường nào khác.
+- Một câu hỏi chỉ được chọn một lần: trùng thì **422** `Câu hỏi trong đề không được trùng.`
+- Câu hỏi phải có trong ngân hàng: không tồn tại thì **422** `Câu hỏi không tồn tại: <id>.`
+- Chỉ đề `draft` mới sửa được danh sách, đề `published` hoặc `archived` trả **409**.
+- Khi bị từ chối (422, 409), danh sách cũ của đề giữ nguyên.
+
+**Bảo vệ câu hỏi đã xuất bản**: quy tắc dựa trên trạng thái đề chứa câu hỏi.
+
+| Câu hỏi nằm trong | `PATCH` (kể cả đổi `is_active`) | `DELETE` |
+|---|---|---|
+| Không đề nào | Cho phép | Cho phép (204) |
+| Chỉ đề `draft` hoặc `archived` | Cho phép | **409** (hãy ẩn bằng `is_active=false`) |
+| Có ít nhất một đề `published` | **409** | **409** |
+
+- 409 trả `{"detail": "Câu hỏi đang nằm trong đề thi đã xuất bản nên không thể sửa hoặc xóa. Hãy lưu trữ đề thi trước."}`.
+- Muốn sửa câu đang ở đề đã xuất bản: lưu trữ đề (`archived`) rồi sửa. Đề xuất bản lại thì câu bị khóa lại.
+- Logic nằm ở `app/question_lock.py` (đọc danh sách câu hỏi JSON của các đề `published`). Route nào
+  sửa/xóa câu hỏi hoặc phương án cũng phải gọi `ensure_not_in_published_exam(db, question_id)`.
+- Kiểm tra ở tầng ứng dụng: endpoint `publish` nên kiểm tra trong cùng transaction với việc đổi trạng thái.
+
+## Lưu đáp án và tự chấm khi hết giờ (US-14, US-17)
+
+**`PUT /attempts/{attempt_id}/answers/{question_id}`** (cần đăng nhập, chỉ chủ lượt thi) với body
+`{"option_id": "..."}` lưu ngay đáp án vào CSDL và trả `{"question_id", "option_id"}`. Gọi lại với
+phương án khác thì **đổi đáp án** (mỗi câu chỉ có một bản ghi trong `attempt_answers`).
+
+| Tình huống | Kết quả |
+|---|---|
+| `now <= deadline_at`, lượt thi `in_progress` | 200, đáp án được lưu hoặc đổi |
+| `now > deadline_at` | **409** `Đã hết giờ làm bài...`; server chuyển lượt thi sang `expired` và chốt điểm |
+| Lượt thi đã `expired` | 409 (như trên), đáp án không đổi |
+| Lượt thi đã `submitted` | 409 `Bài thi đã kết thúc...` |
+| Lượt thi không tồn tại hoặc của người khác | 404 |
+| Câu hỏi không thuộc đề | 404 |
+| Phương án không thuộc câu hỏi | 422 |
+
+- Giờ kiểm tra là giờ **server** (UTC), không tin đồng hồ máy khách. `now == deadline_at` vẫn hợp lệ.
+- Khi chốt (`expire_if_due` trong `app/attempts.py`): `status = expired`, `submitted_at = deadline_at`,
+  `score` theo thang 0-100 = tổng `points` các câu đúng / tổng `points` của đề, `correct_count`,
+  `passed = score >= pass_score`. Câu chưa trả lời tính 0 điểm. Đáp án gửi sau hạn không được lưu.
+- Việc chốt diễn ra khi lượt thi được truy cập sau hạn (lười biếng). Các endpoint khác
+  (`GET /attempts/{id}`, `submit`, `result`, `/me/attempts`) nên gọi `expire_if_due`, và có thể gọi
+  `expire_overdue_attempts(db)` từ một tác vụ định kỳ để chốt những lượt không ai mở lại.
+- Câu hỏi của lượt thi lấy từ `exams.questions`; endpoint bắt đầu lượt thi tạo snapshot câu hỏi
+  an toàn trong response (`POST /exams/{id}/attempts`).
+- Migration `0005` thêm `attempts` và `attempt_answers`; migration `0006` giới hạn một lượt
+  `in_progress` cho mỗi sinh viên.
+- Backend hiện chưa có endpoint nộp bài thủ công riêng (`POST /attempts/{id}/submit`). Trạng thái
+  `submitted` được xử lý ở tầng nghiệp vụ: không nhận thêm đáp án. Vì vậy bộ test hiện xác minh
+  việc ghi đáp án lặp không tạo bản ghi trùng và lượt đã kết thúc bị khóa; chưa thể kiểm thử
+  yêu cầu gọi lặp endpoint nộp bài cho đến khi endpoint đó được triển khai.
+
+## Cơ sở dữ liệu: 8 bảng (T05F928)
+
+Alembic (`migrations/versions/0001`–`0007`) tạo đủ 8 bảng: `users`, `subjects`, `exams`, `questions`,
+`question_options`, `exam_questions`, `attempts`, `attempt_answers`. Bảng `exam_questions`
+(migration `0007`) lưu thứ tự và điểm từng câu trong đề, khóa chính `(exam_id, question_id)`;
+migration tự chép dữ liệu từ cột JSON `exams.questions` (bỏ qua câu trùng, không tồn tại hoặc điểm
+ngoài khoảng 0–100). Cột JSON vẫn là nguồn dữ liệu mà các API hiện tại đọc/ghi; chuyển API sang bảng
+mới là việc của task sau. Kiểm tra: `python -m alembic upgrade head`, `python -m pytest tests/test_migrations.py`.
 
 ## Chạy trên máy
 
@@ -211,7 +291,66 @@ app/
   schemas.py           # Request/response công khai
   routes.py            # POST /auth/register
   admin.py             # admin_router + require_admin (401/403 cho /admin/*)
+  question_lock.py     # Chặn sửa/xóa câu hỏi nằm trong đề đã xuất bản (409)
+  attempts.py          # PUT /attempts/{id}/answers/{question_id}, chấm khi hết giờ
   security.py          # Argon2id
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration
+```
+
+
+## Seed dữ liệu Demo (TK-03)
+
+Sau khi cài thư viện và chạy migration, tạo dữ liệu mẫu phục vụ demo/buổi bảo vệ:
+
+```bash
+python -m alembic upgrade head
+python seed_demo.py
+```
+
+Script `seed_demo.py` có thể chạy nhiều lần mà không tạo trùng môn học, câu hỏi,
+đề thi hoặc tài khoản demo. Tài khoản đã tồn tại sẽ giữ nguyên mật khẩu hiện tại;
+role của hai email demo được đặt theo mục đích demo.
+
+**Tài khoản mẫu:**
+
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| Admin | `admin@smartexam.local` | `DemoAdmin123!` |
+| Student | `student@smartexam.local` | `DemoStudent123!` |
+
+**Dữ liệu được tạo:**
+- 2 môn học: Toán học, Tin học.
+- 6 câu hỏi trắc nghiệm, mỗi câu có 4 phương án và đúng 1 đáp án.
+- 1 đề Toán học ở trạng thái `published`.
+- 1 đề Tin học ở trạng thái `draft`.
+- Mỗi đề có 3 câu, 10 điểm/câu, thời gian 30 phút, điểm đạt 60.
+
+Script dùng `DATABASE_URL` hiện tại của ứng dụng. Nếu không đặt biến này,
+dữ liệu được ghi vào SQLite mặc định `smartexam.db` trong thư mục chạy lệnh.
+Chỉ dùng các mật khẩu mẫu trên cho môi trường demo/local, không dùng khi triển khai thật.
+## TK-02 — Kiểm thử tự động Backend
+
+Bộ test dùng `pytest`, `FastAPI TestClient` và SQLite tạm theo từng test; không dùng CSDL
+phát triển. Các nhóm kiểm thử chính:
+
+| Nhóm | Phạm vi kiểm thử |
+|---|---|
+| Auth | Đăng ký, dữ liệu đầu vào, email trùng, đăng nhập đúng/sai, JWT, `/auth/me` |
+| Phân quyền | 401 khi thiếu/sai token; 403 với student; admin được phép; role lấy từ CSDL |
+| Logic chấm điểm | Tổng điểm theo `points`, câu bỏ trống = 0, làm tròn 2 chữ số, đạt/trượt |
+| Chặn ghi trùng | Ghi lại đáp án cùng câu chỉ cập nhật một dòng; lượt đã `submitted` không nhận đáp án |
+| Chặn hết giờ | Mốc deadline, tự chuyển `expired`, tự chấm, không nhận đáp án sau hạn |
+
+Chạy toàn bộ test từ thư mục `SmartExam_Backend`:
+
+```bash
+python -m pytest -q
+```
+
+Kiểm tra style và định dạng:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
 ```

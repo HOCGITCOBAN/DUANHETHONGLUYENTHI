@@ -2,14 +2,13 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
 import pytest
-from argon2.exceptions import VerifyMismatchError
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.database import Base
 from app.main import create_app
 from app.models import User
-from app.security import password_hasher
+from app.security import password_hasher, verify_password
 
 
 @pytest.fixture
@@ -86,8 +85,8 @@ def test_register_persists_a_student_and_returns_only_public_fields(app, client,
         assert user.email == result["email"]
         assert user.role == "student"
         assert user.password_hash != registration["password"]
-        assert user.password_hash.startswith("$argon2")
-        assert password_hasher.verify(user.password_hash, registration["password"])
+        assert user.password_hash.startswith("$2b$")
+        assert verify_password(user.password_hash, registration["password"]) == (True, False)
 
 
 def test_identical_passwords_get_different_salted_hashes(app, client, registration):
@@ -99,7 +98,7 @@ def test_identical_passwords_get_different_salted_hashes(app, client, registrati
         hashes = session.scalars(select(User.password_hash)).all()
     assert len(hashes) == 2
     assert hashes[0] != hashes[1]
-    assert all(password_hasher.verify(value, registration["password"]) for value in hashes)
+    assert all(verify_password(value, registration["password"]) == (True, False) for value in hashes)
 
 
 def test_password_whitespace_and_unicode_are_preserved(app, client, registration):
@@ -109,9 +108,8 @@ def test_password_whitespace_and_unicode_are_preserved(app, client, registration
 
     with app.state.session_factory() as session:
         stored_hash = session.scalar(select(User.password_hash))
-    assert password_hasher.verify(stored_hash, password)
-    with pytest.raises(VerifyMismatchError):
-        password_hasher.verify(stored_hash, password.strip())
+    assert verify_password(stored_hash, password) == (True, False)
+    assert verify_password(stored_hash, password.strip())[0] is False
 
 
 @pytest.mark.parametrize(
@@ -139,7 +137,7 @@ def test_duplicate_email_is_rejected_without_changing_the_existing_user(
     with app.state.session_factory() as session:
         user = session.scalars(select(User)).one()
         assert user.full_name == registration["name"]
-        assert password_hasher.verify(user.password_hash, registration["password"])
+        assert verify_password(user.password_hash, registration["password"]) == (True, False)
 
     # A rejected transaction must not prevent a later independent registration.
     followup = client.post("/auth/register", json={**registration, "email": "next@example.com"})
@@ -182,7 +180,7 @@ def test_canonically_equivalent_unicode_emails_cannot_create_duplicate_accounts(
         assert user.full_name == registration["name"]
         assert user.email == expected_email
         assert user.password_hash == original_hash
-        assert password_hasher.verify(user.password_hash, registration["password"])
+        assert verify_password(user.password_hash, registration["password"]) == (True, False)
 
 
 def test_concurrent_duplicate_registration_creates_exactly_one_account(app, client, registration):

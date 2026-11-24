@@ -1,5 +1,31 @@
 # SmartExam Frontend
 
+## US-06 — Ngân hàng câu hỏi / T05F917
+
+Đã kết nối API thật cho tạo, sửa, ẩn/mở câu hỏi, môn học, độ khó và 2–6 phương án
+với đúng một đáp án đúng. Chạy migration và FastAPI theo `../SmartExam_Backend/README.md`,
+rồi mở frontend do backend phục vụ và đăng nhập tài khoản admin. Admin được đưa tới
+Ngân hàng câu hỏi; tạo môn học trước nếu danh mục trống. Trang này không phụ thuộc API đề thi.
+
+Form hỗ trợ thêm/xóa phương án (giới hạn 2–6), chọn một đáp án bằng radio,
+lời giải không bắt buộc, trạng thái hoạt động và lọc theo môn/độ khó/từ khóa.
+Bỏ chọn “Câu hỏi đang hoạt động” để ẩn; dữ liệu vẫn tồn tại và có thể mở lại.
+Lỗi API được hiển thị trong form để sửa và gửi lại.
+
+`node server.mjs` vẫn dùng cấu hình `api-demo`: đăng nhập thật, nghiệp vụ câu hỏi/thi
+mô phỏng trên trình duyệt. Dùng frontend cùng origin từ FastAPI để lưu câu hỏi thật.
+Kiểm thử adapter: `node tests/questions.mjs`.
+
+Các trang tải dữ liệu độc lập: hồ sơ dùng tài khoản đã đăng nhập, danh mục môn học
+chỉ gọi danh mục; thiếu API đề thi/lịch sử không chặn các trang đó hoặc ngân hàng
+câu hỏi. Tổng quan hiển thị các chức năng đang có; đề thi/lịch sử/thống kê thông báo
+chưa sẵn sàng khi backend trả 404 cho collection tương ứng. Lỗi mạng, 401/403/5xx
+vẫn được xử lý như lỗi, không chuyển sang dữ liệu demo. Kiểm thử: `node tests/page-data.mjs`.
+
+Tài khoản có họ tên `admin` nhưng vai trò `student` vẫn là sinh viên. Chủ CSDL phát triển
+có thể chạy `python -m app.manage_admin` trong backend hoặc mở `CAP_QUYEN_ADMIN.bat`,
+nhập email đã đăng ký rồi đăng xuất/đăng nhập lại để vào Ngân hàng câu hỏi.
+
 Toàn bộ FE1 + FE2 theo Product Backlog SmartExam: giao diện Sinh viên và Admin.
 HTML, CSS, JavaScript ES modules thuần; không cần npm install, không dùng dịch vụ trả phí.
 
@@ -15,6 +41,8 @@ Cách dùng VS Code:
 4. Hoặc nếu có Python: `python -m http.server 5500 --directory dist`, rồi mở http://localhost:5500.
 
 Không mở file bằng double-click/file:// vì ES modules cần HTTP server.
+
+`CHAY_SMARTEXAM.bat` starts the Backend (including database migrations) and the Frontend. The Frontend server may choose a free port from 5500 to 5510 if the default port is busy. `node server.mjs` starts only the Frontend; when using Live Server, start `SmartExam_Backend/CHAY_BACKEND.bat` in a separate window as well, because the default `api-demo` mode uses the Backend for login.
 
 ## Tài khoản demo
 
