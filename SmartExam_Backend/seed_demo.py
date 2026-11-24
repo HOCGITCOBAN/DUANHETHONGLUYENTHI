@@ -17,13 +17,13 @@ from app.security import hash_password
 DEMO_USERS = [
     {
         "full_name": "Quản trị viên Demo",
-        "email": "admin@smartexam.local",
+        "email": "admin@smartexam.example.com",
         "password": "DemoAdmin123!",
         "role": "admin",
     },
     {
         "full_name": "Sinh viên Demo",
-        "email": "student@smartexam.local",
+        "email": "student@smartexam.example.com",
         "password": "DemoStudent123!",
         "role": "student",
     },
@@ -258,8 +258,8 @@ def main() -> None:
         engine.dispose()
 
     print("\nSeed dữ liệu Demo hoàn tất.")
-    print("Admin:   admin@smartexam.local / DemoAdmin123!")
-    print("Student: student@smartexam.local / DemoStudent123!")
+    print("Admin:   admin@smartexam.example.com / DemoAdmin123!")
+    print("Student: student@smartexam.example.com / DemoStudent123!")
     print("Đề Toán học: Published | Đề Tin học: Draft")
 
 

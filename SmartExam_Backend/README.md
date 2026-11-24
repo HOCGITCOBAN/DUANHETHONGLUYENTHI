@@ -316,8 +316,8 @@ role của hai email demo được đặt theo mục đích demo.
 
 | Vai trò | Email | Mật khẩu |
 |---|---|---|
-| Admin | `admin@smartexam.local` | `DemoAdmin123!` |
-| Student | `student@smartexam.local` | `DemoStudent123!` |
+| Admin | `admin@smartexam.example.com` | `DemoAdmin123!` |
+| Student | `student@smartexam.example.com` | `DemoStudent123!` |
 
 **Dữ liệu được tạo:**
 - 2 môn học: Toán học, Tin học.

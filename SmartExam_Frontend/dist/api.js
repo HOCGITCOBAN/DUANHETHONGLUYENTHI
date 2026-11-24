@@ -1,6 +1,7 @@
 const config=window.SMARTEXAM_CONFIG||{mode:'demo'};
 export const DEMO=config.mode==='demo';
 export const API_AUTH=config.mode==='api'||config.mode==='api-demo';
+export const API_DEMO=config.mode==='api-demo';
 export const LOCAL_DATA=config.mode!=='api';
 const KEY='smartexam.demo.v1';
 let token=null;
@@ -78,7 +79,7 @@ async function request(path,method='GET',body){
       const res=await fetch(url,{method,signal:ctrl.signal,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
       const data=res.status===204?null:await res.json().catch(()=>null);
       if(!res.ok){
-        if(res.status===401){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
+        if(res.status===401&&token&&path!=='/auth/login'&&path!=='/auth/register'){token=null;sessionStorage.removeItem('smartexam.session');window.dispatchEvent(new Event('session-expired'))}
         if(attempt+1<attempts&&[502,503,504].includes(res.status))continue;
         const error=Error(apiErrorMessage(path,res.status,data));
         error.status=res.status;
