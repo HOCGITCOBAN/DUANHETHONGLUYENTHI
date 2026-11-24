@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.attempts import as_utc, expire_overdue_attempts
 from app.database import Base
@@ -327,3 +327,40 @@ def test_expire_overdue_attempts_grades_only_overdue_in_progress_attempts(env):
     assert load_attempt(env, overdue_b.id).score == 0.0
     assert load_attempt(env, on_time.id).status == "in_progress"
     assert load_attempt(env, finished.id).status == "submitted"
+
+
+def test_repeated_answer_writes_keep_exactly_one_database_row(env):
+    """Gửi lại đáp án cho cùng câu chỉ cập nhật bản ghi, không tạo bản ghi trùng."""
+    attempt = make_attempt(env, [2])
+    question = attempt.questions[0]
+    wrong_option = option_id(question, correct=False)
+    correct_option = option_id(question, correct=True)
+
+    first = put_answer(env, attempt.id, question["id"], wrong_option)
+    second = put_answer(env, attempt.id, question["id"], correct_option)
+    assert first.status_code == second.status_code == 200
+
+    with env.app.state.session_factory() as session:
+        count = session.scalar(
+            select(func.count())
+            .select_from(AttemptAnswer)
+            .where(
+                AttemptAnswer.attempt_id == attempt.id,
+                AttemptAnswer.question_id == question["id"],
+            )
+        )
+        saved = session.get(AttemptAnswer, (attempt.id, question["id"]))
+        assert count == 1
+        assert saved.option_id == correct_option
+
+
+def test_finished_attempt_rejects_repeated_answer_submission_without_mutation(env):
+    attempt = make_attempt(env, [1], status="submitted")
+    question = attempt.questions[0]
+
+    first = put_answer(env, attempt.id, question["id"], option_id(question, correct=True))
+    second = put_answer(env, attempt.id, question["id"], option_id(question, correct=False))
+
+    assert first.status_code == second.status_code == 409
+    assert saved_answers(env, attempt.id) == {}
+    assert load_attempt(env, attempt.id).status == "submitted"

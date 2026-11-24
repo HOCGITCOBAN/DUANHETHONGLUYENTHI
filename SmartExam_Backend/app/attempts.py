@@ -110,3 +110,61 @@ def save_answer(
         answer.answered_at = now
     db.commit()
     return AnswerResponse(question_id=question_id, option_id=option.id)
+
+
+@router.post("/{attempt_id}/submit")
+def submit_attempt(
+    attempt_id: str,
+    user: Annotated[User, Depends(current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """T05F921: US-16 Chấm điểm tự động và nộp bài (Idempotent trong Transaction)."""
+    stmt = select(Attempt).where(Attempt.id == attempt_id, Attempt.user_id == user.id)
+    if db.bind and db.bind.dialect.name != "sqlite":
+        stmt = stmt.with_for_update()
+    attempt = db.scalar(stmt)
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lượt thi.")
+
+    # Idempotent: Nếu đã nộp trước đó, trả về ngay kết quả hiện có, không tính lại hay nhân đôi điểm
+    if attempt.status in ("submitted", "expired"):
+        return {
+            "id": attempt.id,
+            "exam_id": attempt.exam_id,
+            "user_id": attempt.user_id,
+            "status": attempt.status,
+            "started_at": attempt.started_at.isoformat(),
+            "deadline_at": attempt.deadline_at.isoformat(),
+            "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+            "score": attempt.score,
+            "correct_count": attempt.correct_count,
+            "passed": attempt.passed,
+        }
+
+    now = utc_now()
+    deadline = as_utc(attempt.deadline_at)
+    is_overdue = now > deadline
+
+    exam = db.get(Exam, attempt.exam_id)
+    if exam is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
+
+    # Tính điểm: Điểm = 100 * (Điểm đúng / Tổng điểm)
+    grade_attempt(db, attempt, exam)
+
+    attempt.status = "expired" if is_overdue else "submitted"
+    attempt.submitted_at = deadline if is_overdue else now
+    db.commit()
+
+    return {
+        "id": attempt.id,
+        "exam_id": attempt.exam_id,
+        "user_id": attempt.user_id,
+        "status": attempt.status,
+        "started_at": attempt.started_at.isoformat(),
+        "deadline_at": attempt.deadline_at.isoformat(),
+        "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+        "score": attempt.score,
+        "correct_count": attempt.correct_count,
+        "passed": attempt.passed,
+    }

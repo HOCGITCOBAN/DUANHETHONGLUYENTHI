@@ -7,6 +7,20 @@ server gán quyền `student` qua `POST /auth/register`.
 - `SmartExam_Backend/`: FastAPI, SQLAlchemy, Alembic, SQLite và kiểm thử API.
 - `SmartExam_Frontend/`: giao diện JavaScript hiện có, hỗ trợ API thật và chế độ demo.
 
+## US-06 — CRUD Câu hỏi & Phương án (T05F917)
+
+Admin có thể tạo, sửa, ẩn/mở câu hỏi theo môn học và độ khó. Backend lưu câu hỏi,
+lời giải và các phương án theo thứ tự; kiểm tra **2–6 phương án và đúng một đáp án đúng**.
+API: `GET/POST /admin/questions`, `PATCH /admin/questions/{id}`.
+
+Chạy migration và backend theo hướng dẫn bên dưới, sau đó đăng nhập bằng tài khoản
+admin. Trong chế độ API cùng origin, admin được đưa tới **Ngân hàng câu hỏi**;
+tạo môn học trước nếu danh mục còn trống. Đăng ký công khai chỉ tạo tài khoản student;
+cách cấp quyền admin có trong [README backend](SmartExam_Backend/README.md#phân-quyền-admin-admin).
+
+Xem [hợp đồng US-06](SmartExam_Frontend/API_CONTRACT.md#us-06-đã-triển-khai--t05f917)
+và [báo cáo kiểm thử](SmartExam_Frontend/TEST_REPORT.md#cập-nhật-us-06--t05f917).
+
 ## Chạy đăng ký với CSDL thật
 
 Cần Python 3.11 trở lên. Từ thư mục repo:
@@ -62,4 +76,5 @@ python -m ruff format --check .
 # Trong SmartExam_Frontend:
 node tests/domain.mjs
 node tests/registration.mjs
+node tests/questions.mjs
 ```
