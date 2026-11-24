@@ -105,10 +105,14 @@ phương án khác thì **đổi đáp án** (mỗi câu chỉ có một bản g
 - Việc chốt diễn ra khi lượt thi được truy cập sau hạn (lười biếng). Các endpoint khác
   (`GET /attempts/{id}`, `submit`, `result`, `/me/attempts`) nên gọi `expire_if_due`, và có thể gọi
   `expire_overdue_attempts(db)` từ một tác vụ định kỳ để chốt những lượt không ai mở lại.
-- Câu hỏi của lượt thi lấy từ `exams.questions`; đề `published` không sửa được danh sách và câu hỏi
-  trong đề `published` bị khóa (US-07), nên không cần chép snapshot.
-- Migration `0005` thêm `attempts` và `attempt_answers`. Chưa có endpoint bắt đầu lượt thi
-  (`POST /exams/{id}/attempts`); test tạo lượt thi trực tiếp trong CSDL.
+- Câu hỏi của lượt thi lấy từ `exams.questions`; endpoint bắt đầu lượt thi tạo snapshot câu hỏi
+  an toàn trong response (`POST /exams/{id}/attempts`).
+- Migration `0005` thêm `attempts` và `attempt_answers`; migration `0006` giới hạn một lượt
+  `in_progress` cho mỗi sinh viên.
+- Backend hiện chưa có endpoint nộp bài thủ công riêng (`POST /attempts/{id}/submit`). Trạng thái
+  `submitted` được xử lý ở tầng nghiệp vụ: không nhận thêm đáp án. Vì vậy bộ test hiện xác minh
+  việc ghi đáp án lặp không tạo bản ghi trùng và lượt đã kết thúc bị khóa; chưa thể kiểm thử
+  yêu cầu gọi lặp endpoint nộp bài cho đến khi endpoint đó được triển khai.
 
 ## Chạy trên máy
 
@@ -283,4 +287,31 @@ app/
   security.py          # Argon2id
 migrations/            # Alembic migration tạo bảng users
 tests/                 # Kiểm thử API và migration
+```
+
+
+## TK-02 — Kiểm thử tự động Backend
+
+Bộ test dùng `pytest`, `FastAPI TestClient` và SQLite tạm theo từng test; không dùng CSDL
+phát triển. Các nhóm kiểm thử chính:
+
+| Nhóm | Phạm vi kiểm thử |
+|---|---|
+| Auth | Đăng ký, dữ liệu đầu vào, email trùng, đăng nhập đúng/sai, JWT, `/auth/me` |
+| Phân quyền | 401 khi thiếu/sai token; 403 với student; admin được phép; role lấy từ CSDL |
+| Logic chấm điểm | Tổng điểm theo `points`, câu bỏ trống = 0, làm tròn 2 chữ số, đạt/trượt |
+| Chặn ghi trùng | Ghi lại đáp án cùng câu chỉ cập nhật một dòng; lượt đã `submitted` không nhận đáp án |
+| Chặn hết giờ | Mốc deadline, tự chuyển `expired`, tự chấm, không nhận đáp án sau hạn |
+
+Chạy toàn bộ test từ thư mục `SmartExam_Backend`:
+
+```bash
+python -m pytest -q
+```
+
+Kiểm tra style và định dạng:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
 ```
