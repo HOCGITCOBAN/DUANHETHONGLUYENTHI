@@ -44,6 +44,40 @@ def test_migration_upgrade_matches_models_and_can_be_reversed(tmp_path):
         engine.dispose()
 
 
+EXPECTED_TABLES = {
+    "users",
+    "subjects",
+    "exams",
+    "questions",
+    "question_options",
+    "exam_questions",
+    "attempts",
+    "attempt_answers",
+}
+
+
+def test_migration_creates_all_eight_tables(tmp_path):
+    url = f"sqlite:///{tmp_path / 'tables.db'}"
+    env = {**os.environ, "DATABASE_URL": url}
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=PROJECT_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    engine = create_engine(url)
+    try:
+        tables = set(inspect(engine).get_table_names()) - {"alembic_version"}
+        assert tables == EXPECTED_TABLES
+        pk = inspect(engine).get_pk_constraint("exam_questions")["constrained_columns"]
+        assert pk == ["exam_id", "question_id"]
+    finally:
+        engine.dispose()
+
+
 def test_question_upgrade_preserves_existing_users_and_subjects(tmp_path):
     url = f"sqlite:///{tmp_path / 'existing.db'}"
     env = {**os.environ, "DATABASE_URL": url}
