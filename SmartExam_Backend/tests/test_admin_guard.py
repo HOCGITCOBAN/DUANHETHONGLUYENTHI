@@ -177,3 +177,35 @@ def test_role_changes_take_effect_without_a_new_token(app, admin_client):
 def test_every_route_added_to_admin_router_requires_admin(app):
     assert admin_router.prefix == "/admin"
     assert any(dep.dependency is require_admin for dep in admin_router.dependencies)
+
+
+def test_login_rejects_unknown_email_and_wrong_password_without_issuing_token(app, client):
+    make_user(app, "student@example.com", "student")
+
+    unknown = client.post(
+        "/auth/login", json={"email": "missing@example.com", "password": PASSWORD}
+    )
+    wrong_password = client.post(
+        "/auth/login", json={"email": "student@example.com", "password": "Wrong password!"}
+    )
+
+    for response in (unknown, wrong_password):
+        assert response.status_code == 401, response.text
+        assert response.json() == {"detail": "Email hoặc mật khẩu không đúng."}
+        assert "access_token" not in response.json()
+        assert PASSWORD not in response.text
+
+
+def test_login_token_can_access_me_but_missing_token_cannot(app, client):
+    make_user(app, "student@example.com", "student")
+
+    login = client.post(
+        "/auth/login", json={"email": "student@example.com", "password": PASSWORD}
+    )
+    assert login.status_code == 200, login.text
+    assert login.json()["token_type"] == "bearer"
+
+    profile = client.get("/auth/me", headers=bearer(login.json()["access_token"]))
+    assert profile.status_code == 200
+    assert profile.json()["email"] == "student@example.com"
+    assert client.get("/auth/me").status_code == 401
